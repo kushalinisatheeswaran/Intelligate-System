@@ -1,4 +1,5 @@
 from flask import Blueprint, request, jsonify
+from flask_jwt_extended import jwt_required
 from datetime import datetime
 from app.database import db
 from app.models.vehicle    import Vehicle
@@ -11,21 +12,26 @@ from app.services.telegram_service import send_denial_alert
 verify_bp = Blueprint("verify", __name__)
 
 @verify_bp.route("/verify", methods=["POST"])
+@jwt_required()
 def verify():
+    """
+    Called by CV engine (Karthigan/Sulaksan) with a valid JWT.
+    They get a token by calling POST /api/auth/login first.
+    Role: guard or admin can call this.
+    """
     data = request.get_json()
 
     if not data or "type" not in data or "value" not in data:
         return jsonify({"error": "Missing required fields: type, value"}), 400
 
-    id_type   = data["type"]               # "plate" or "barcode"
-    value     = data["value"].strip().upper()
-    direction = data.get("direction", "entry")
-    image_path = data.get("image_path")    # optional: path saved by CV engine
+    id_type    = data["type"]
+    value      = data["value"].strip().upper()
+    direction  = data.get("direction", "entry")
+    image_path = data.get("image_path")
 
-    user      = None
+    user       = None
     authorized = False
 
-    # --- Check authorization ---
     if id_type == "plate":
         vehicle = Vehicle.query.filter_by(
             plate_number=value, is_active=True
@@ -45,7 +51,6 @@ def verify():
     else:
         return jsonify({"error": "Invalid type. Use 'plate' or 'barcode'"}), 400
 
-    # --- Write access log ---
     log = AccessLog(
         user_id    = user.id if user else None,
         identifier = value,
@@ -56,9 +61,8 @@ def verify():
         timestamp  = datetime.utcnow()
     )
     db.session.add(log)
-    db.session.flush()  # get log.id before commit
+    db.session.flush()
 
-    # --- If denied: create pending approval + send Telegram alert ---
     if not authorized:
         pending = PendingApproval(
             log_id     = log.id,
@@ -86,7 +90,6 @@ def verify():
             "message":    "Access denied. Added to pending review."
         }), 200
 
-    # --- If granted: open gate ---
     db.session.commit()
     open_gate()
 

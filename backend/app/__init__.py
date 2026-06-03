@@ -1,5 +1,6 @@
-from flask import Flask
+from flask import Flask, jsonify
 from flask_cors import CORS
+from flask_jwt_extended import JWTManager
 from app.config import Config
 from app.database import db, migrate
 
@@ -12,7 +13,31 @@ def create_app():
     migrate.init_app(app, db)
     CORS(app, origins=["http://localhost:3000"])
 
-    # Import models so Flask-Migrate detects them
+    jwt = JWTManager(app)
+
+    # JWT error handlers — return clean JSON instead of HTML errors
+    @jwt.unauthorized_loader
+    def unauthorized_callback(error):
+        return jsonify({
+            "error": "Missing or invalid token",
+            "message": "Authorization required"
+        }), 401
+
+    @jwt.expired_token_loader
+    def expired_token_callback(jwt_header, jwt_payload):
+        return jsonify({
+            "error": "Token expired",
+            "message": "Please log in again"
+        }), 401
+
+    @jwt.invalid_token_loader
+    def invalid_token_callback(error):
+        return jsonify({
+            "error": "Invalid token",
+            "message": "Token verification failed"
+        }), 401
+
+    # Import models
     from app.models import user, vehicle, student_id, access_log, pending, administrator
 
     # Register blueprints
