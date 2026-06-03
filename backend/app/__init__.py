@@ -4,6 +4,7 @@ from flask_jwt_extended import JWTManager
 from app.config import Config
 from app.database import db, migrate
 
+
 def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
@@ -46,13 +47,14 @@ def create_app():
     from app.routes.approvals import approvals_bp
     from app.routes.gate      import gate_bp
     from app.routes.auth      import auth_bp
-
+    from app.routes.users import users_bp
+    
     app.register_blueprint(verify_bp,    url_prefix="/api")
     app.register_blueprint(logs_bp,      url_prefix="/api")
     app.register_blueprint(approvals_bp, url_prefix="/api")
     app.register_blueprint(gate_bp,      url_prefix="/api")
     app.register_blueprint(auth_bp,      url_prefix="/api")
-
+    app.register_blueprint(users_bp, url_prefix="/api")
     @app.route("/api/health")
     def health():
         return {"status": "ok", "project": "IntelliGate", "db": "connected"}, 200
