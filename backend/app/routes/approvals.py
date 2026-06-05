@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify, request
-from flask_jwt_extended import jwt_required, get_jwt_identity
+from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
 from datetime import datetime
 from app.database import db
 from app.models.pending    import PendingApproval
@@ -7,8 +7,12 @@ from app.models.vehicle    import Vehicle
 from app.models.student_id import StudentID
 from app.models.user       import User
 from app.models.access_log import AccessLog
-from app.services.gate_service import open_gate
-from app.utils.decorators  import admin_required
+from app.services.gate_service    import open_gate
+from app.services.socket_service  import (
+    emit_approval_update,
+    emit_gate_status
+)
+from app.utils.decorators import admin_required
 
 approvals_bp = Blueprint("approvals", __name__)
 
@@ -31,17 +35,11 @@ def get_pending():
 @jwt_required()
 @admin_required
 def approve(approval_id):
-    """
-    Admin approves an unknown vehicle.
-    Steps:
-      1. Mark pending as approved
-      2. Register vehicle/student in authorized table
-      3. Optionally open gate immediately (if vehicle is still at gate)
-    """
     reviewer_id = int(get_jwt_identity())
+    claims      = get_jwt()
     approval    = PendingApproval.query.get_or_404(approval_id)
     data        = request.get_json() or {}
-    open_now    = data.get("open_gate", False)  # optional: open gate immediately
+    open_now    = data.get("open_gate", False)
 
     if approval.status != "pending":
         return jsonify({"error": "Already reviewed"}), 400
@@ -50,10 +48,9 @@ def approve(approval_id):
     approval.reviewed_by = reviewer_id
     approval.reviewed_at = datetime.utcnow()
 
-    new_user    = None
-    registered  = False
+    new_user   = None
+    registered = False
 
-    # Register as authorized vehicle
     if approval.id_type == "plate":
         existing = Vehicle.query.filter_by(
             plate_number=approval.identifier
@@ -75,20 +72,18 @@ def approve(approval_id):
             db.session.add(vehicle)
             registered = True
         else:
-            # Reactivate if was deactivated
             existing.is_active = True
             registered = True
 
-    # Register as authorized student
     elif approval.id_type == "barcode":
         existing = StudentID.query.filter_by(
             student_number=approval.identifier
         ).first()
         if not existing:
             new_user = User(
-                name   = data.get("name", f"Student ({approval.identifier})"),
-                email  = data.get("email"),
-                role   = "student"
+                name  = data.get("name", f"Student ({approval.identifier})"),
+                email = data.get("email"),
+                role  = "student"
             )
             db.session.add(new_user)
             db.session.flush()
@@ -101,7 +96,6 @@ def approve(approval_id):
             db.session.add(student)
             registered = True
 
-    # Log this approval as a granted entry
     log = AccessLog(
         user_id    = new_user.id if new_user else None,
         identifier = approval.identifier,
@@ -113,9 +107,19 @@ def approve(approval_id):
     db.session.add(log)
     db.session.commit()
 
+    # Emit approval update — React Native pending screen updates live
+    emit_approval_update({
+        "pending_id":   approval_id,
+        "identifier":   approval.identifier,
+        "status":       "approved",
+        "reviewed_by":  claims.get("name", "Admin"),
+        "timestamp":    datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+    })
+
     gate_result = None
     if open_now:
         gate_result = open_gate()
+        emit_gate_status("open", triggered_by=claims.get("name", "admin"))
 
     return jsonify({
         "message":    "Approved. Entry authorized.",
@@ -131,6 +135,7 @@ def approve(approval_id):
 @admin_required
 def reject(approval_id):
     reviewer_id = int(get_jwt_identity())
+    claims      = get_jwt()
     approval    = PendingApproval.query.get_or_404(approval_id)
 
     if approval.status != "pending":
@@ -145,6 +150,17 @@ def reject(approval_id):
     approval.reviewed_at = datetime.utcnow()
 
     db.session.commit()
+
+    # Emit — React Native removes item from pending list
+    emit_approval_update({
+        "pending_id":  approval_id,
+        "identifier":  approval.identifier,
+        "status":      "rejected",
+        "reason":      reason,
+        "reviewed_by": claims.get("name", "Admin"),
+        "timestamp":   datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+    })
+
     return jsonify({
         "message": "Rejected.",
         "id":      approval_id,
