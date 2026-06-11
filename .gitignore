@@ -6,3 +6,4 @@ __pycache__/
 numberplate/unknown_plates/
 numberplate/test.jpg
 numberplate/unregistered.jpg
+backend/test_db_match.py
