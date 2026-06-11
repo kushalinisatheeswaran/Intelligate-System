@@ -8,10 +8,11 @@ from app.models.student_id import StudentID
 from app.models.user       import User
 from app.models.access_log import AccessLog
 from app.services.gate_service    import open_gate
-from app.services.socket_service  import (
-    emit_approval_update,
-    emit_gate_status
-)
+
+# 💡 SAFE UNIFIED MODULE IMPORT:
+# Replaces individual function extraction to bypass compile-time circular locks during app init
+from app.services import socket_service
+
 from app.utils.decorators import admin_required
 
 approvals_bp = Blueprint("approvals", __name__)
@@ -56,19 +57,17 @@ def approve(approval_id):
             plate_number=approval.identifier
         ).first()
         if not existing:
-            new_user = User(
-                name  = data.get("name", f"Visitor ({approval.identifier})"),
-                email = data.get("email"),
-                role  = data.get("role", "visitor")
-            )
+            new_user = User()
+            new_user.name  = data.get("name", f"Visitor ({approval.identifier})")
+            new_user.email = data.get("email")
+            new_user.role  = data.get("role", "visitor")
             db.session.add(new_user)
             db.session.flush()
-            vehicle = Vehicle(
-                user_id      = new_user.id,
-                plate_number = approval.identifier,
-                vehicle_type = data.get("vehicle_type", "car"),
-                is_active    = True
-            )
+            vehicle = Vehicle()
+            vehicle.user_id      = new_user.id
+            vehicle.plate_number = approval.identifier
+            vehicle.vehicle_type = data.get("vehicle_type", "car")
+            vehicle.is_active    = True
             db.session.add(vehicle)
             registered = True
         else:
@@ -80,35 +79,32 @@ def approve(approval_id):
             student_number=approval.identifier
         ).first()
         if not existing:
-            new_user = User(
-                name  = data.get("name", f"Student ({approval.identifier})"),
-                email = data.get("email"),
-                role  = "student"
-            )
+            new_user = User()
+            new_user.name  = data.get("name", f"Student ({approval.identifier})")
+            new_user.email = data.get("email")
+            new_user.role  = "student"
             db.session.add(new_user)
             db.session.flush()
-            student = StudentID(
-                user_id        = new_user.id,
-                student_number = approval.identifier,
-                faculty        = data.get("faculty", "Unknown"),
-                is_active      = True
-            )
+            student = StudentID()
+            student.user_id        = new_user.id
+            student.student_number = approval.identifier
+            student.faculty        = data.get("faculty", "Unknown")
+            student.is_active      = True
             db.session.add(student)
             registered = True
 
-    log = AccessLog(
-        user_id    = new_user.id if new_user else None,
-        identifier = approval.identifier,
-        id_type    = approval.id_type,
-        direction  = "entry",
-        status     = "granted",
-        timestamp  = datetime.utcnow()
-    )
+    log = AccessLog()
+    log.user_id    = new_user.id if new_user else None
+    log.identifier = approval.identifier
+    log.id_type    = approval.id_type
+    log.direction  = "entry"
+    log.status     = "granted"
+    log.timestamp  = datetime.utcnow()
     db.session.add(log)
     db.session.commit()
 
-    # Emit approval update — React Native pending screen updates live
-    emit_approval_update({
+    # 💡 Socket.IO — Updated via module namespace reference
+    socket_service.emit_approval_update({
         "pending_id":   approval_id,
         "identifier":   approval.identifier,
         "status":       "approved",
@@ -119,7 +115,7 @@ def approve(approval_id):
     gate_result = None
     if open_now:
         gate_result = open_gate()
-        emit_gate_status("open", triggered_by=claims.get("name", "admin"))
+        socket_service.emit_gate_status("open", triggered_by=claims.get("name", "admin"))
 
     return jsonify({
         "message":    "Approved. Entry authorized.",
@@ -151,8 +147,8 @@ def reject(approval_id):
 
     db.session.commit()
 
-    # Emit — React Native removes item from pending list
-    emit_approval_update({
+    # 💡 Socket.IO — Updated via module namespace reference
+    socket_service.emit_approval_update({
         "pending_id":  approval_id,
         "identifier":  approval.identifier,
         "status":      "rejected",
