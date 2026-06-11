@@ -1,0 +1,8 @@
+.DS_Store
+.env
+__pycache__/
+*.pyc
+*.log
+numberplate/unknown_plates/
+numberplate/test.jpg
+numberplate/unregistered.jpg
