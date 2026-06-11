@@ -1,39 +1,219 @@
 from flask import Blueprint, request, jsonify
+from flask_jwt_extended import jwt_required
 from datetime import datetime
+from app.database import db
+from app.models.vehicle    import Vehicle
+from app.models.student_id import StudentID
+from app.models.access_log import AccessLog
+from app.models.pending    import PendingApproval
+from app.services.gate_service import open_gate
+from app.services.socket_service import (
+    emit_vehicle_detected,
+    emit_unknown_vehicle,
+    emit_access_granted,
+    emit_access_denied,
+    emit_gate_status
+)
+from app.services.fcm_service import send_unknown_vehicle_alert
+from app.utils.validators import validate_identifier
 
 verify_bp = Blueprint("verify", __name__)
 
+
 @verify_bp.route("/verify", methods=["POST"])
+@jwt_required()
 def verify():
     data = request.get_json()
 
     if not data or "type" not in data or "value" not in data:
         return jsonify({"error": "Missing required fields: type, value"}), 400
 
-    id_type  = data["type"]       # "plate" or "barcode"
-    value    = data["value"]      # "ABC-1234" or "23/ENG/062"
-    direction = data.get("direction", "entry")
+    id_type    = data["type"].strip().lower()
+    value      = data["value"].strip().upper()
+    direction  = data.get("direction", "entry").strip().lower()
+    image_path = data.get("image_path")
 
-    # --- DUMMY LOGIC (replaced in Phase 2) ---
-    AUTHORIZED = ["ABC-1234", "XYZ-5678", "23/ENG/062", "23/ENG/070"]
+    if direction not in ("entry", "exit"):
+        return jsonify({"error": "direction must be 'entry' or 'exit'"}), 400
 
-    if value in AUTHORIZED:
-        return jsonify({
-            "status": "granted",
+    is_valid, error_msg = validate_identifier(id_type, value)
+    if not is_valid:
+        return jsonify({"error": error_msg}), 400
+
+    # --- Authorization check ---
+    user       = None
+    authorized = False
+
+    if id_type == "plate":
+        vehicle = Vehicle.query.filter_by(
+            plate_number=value, is_active=True
+        ).first()
+        if vehicle:
+            authorized = True
+            user = vehicle.user
+
+    elif id_type == "barcode":
+        student = StudentID.query.filter_by(
+            student_number=value, is_active=True
+        ).first()
+        if student:
+            authorized = True
+            user = student.user
+
+    # --- Duplicate pending check ---
+    if not authorized:
+        existing_pending = PendingApproval.query.filter_by(
+            identifier=value, status="pending"
+        ).first()
+        if existing_pending:
+            return jsonify({
+                "status":     "denied",
+                "identifier": value,
+                "type":       id_type,
+                "reason":     "already_pending",
+                "pending_id": existing_pending.id,
+                "timestamp":  datetime.utcnow().isoformat(),
+                "message":    "Already in pending review queue"
+            }), 200
+
+    # --- Write access log ---
+    log = AccessLog(
+        user_id    = user.id if user else None,
+        identifier = value,
+        id_type    = id_type,
+        direction  = direction,
+        status     = "granted" if authorized else "denied",
+        image_path = image_path,
+        timestamp  = datetime.utcnow()
+    )
+    db.session.add(log)
+    db.session.flush()
+
+    timestamp_str = log.timestamp.strftime("%Y-%m-%d %H:%M:%S")
+
+    # --- DENIED flow ---
+    if not authorized:
+        pending = PendingApproval(
+            log_id     = log.id,
+            identifier = value,
+            id_type    = id_type,
+            image_path = image_path,
+            status     = "pending"
+        )
+        db.session.add(pending)
+        db.session.commit()
+
+        # 1. Socket.IO — instant alert if app is open
+        emit_vehicle_detected({
             "identifier": value,
-            "type": id_type,
-            "direction": direction,
-            "name": "Authorized User",
-            "timestamp": datetime.utcnow().isoformat(),
-            "message": "Gate opening"
-        }), 200
-    else:
-        return jsonify({
-            "status": "denied",
+            "id_type":    id_type,
+            "direction":  direction,
+            "status":     "denied",
+            "name":       None,
+            "timestamp":  timestamp_str
+        })
+        emit_unknown_vehicle({
             "identifier": value,
-            "type": id_type,
-            "direction": direction,
-            "reason": "not_in_database",
-            "timestamp": datetime.utcnow().isoformat(),
-            "message": "Access denied. Pending review."
+            "id_type":    id_type,
+            "image_path": image_path,
+            "pending_id": pending.id,
+            "timestamp":  timestamp_str
+        })
+        emit_access_denied({
+            "identifier": value,
+            "id_type":    id_type,
+            "reason":     "not_in_database",
+            "timestamp":  timestamp_str
+        })
+
+        # 2. FCM — push notification if app is closed
+        send_unknown_vehicle_alert(
+            identifier = value,
+            id_type    = id_type,
+            pending_id = pending.id,
+            timestamp  = timestamp_str,
+            image_url  = image_path
+        )
+
+        return jsonify({
+            "status":     "denied",
+            "identifier": value,
+            "type":       id_type,
+            "direction":  direction,
+            "reason":     "not_in_database",
+            "pending_id": pending.id,
+            "timestamp":  log.timestamp.isoformat(),
+            "message":    "Access denied. Added to pending review."
         }), 200
+
+    # --- GRANTED flow ---
+    db.session.commit()
+    gate_result = open_gate()
+
+    # Socket.IO — live update to app
+    emit_vehicle_detected({
+        "identifier": value,
+        "id_type":    id_type,
+        "direction":  direction,
+        "status":     "granted",
+        "name":       user.name,
+        "timestamp":  timestamp_str
+    })
+    emit_access_granted({
+        "identifier": value,
+        "id_type":    id_type,
+        "name":       user.name,
+        "direction":  direction,
+        "timestamp":  timestamp_str
+    })
+    emit_gate_status("open", triggered_by="auto_verify")
+
+    return jsonify({
+        "status":     "granted",
+        "identifier": value,
+        "type":       id_type,
+        "direction":  direction,
+        "name":       user.name,
+        "user_id":    user.id,
+        "timestamp":  log.timestamp.isoformat(),
+        "gate":       gate_result,
+        "message":    "Access granted. Gate opening."
+    }), 200
+
+
+@verify_bp.route("/verify/status/<string:identifier>", methods=["GET"])
+@jwt_required()
+def check_status(identifier):
+    identifier = identifier.strip().upper()
+
+    vehicle = Vehicle.query.filter_by(
+        plate_number=identifier, is_active=True
+    ).first()
+    if vehicle:
+        return jsonify({
+            "identifier": identifier,
+            "type":       "plate",
+            "authorized": True,
+            "user":       vehicle.user.to_dict()
+        }), 200
+
+    student = StudentID.query.filter_by(
+        student_number=identifier, is_active=True
+    ).first()
+    if student:
+        return jsonify({
+            "identifier": identifier,
+            "type":       "barcode",
+            "authorized": True,
+            "user":       student.user.to_dict()
+        }), 200
+
+    pending = PendingApproval.query.filter_by(
+        identifier=identifier, status="pending"
+    ).first()
+    return jsonify({
+        "identifier": identifier,
+        "authorized": False,
+        "pending":    pending is not None,
+        "pending_id": pending.id if pending else None
+    }), 200

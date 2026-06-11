@@ -1,35 +1,169 @@
 from flask import Blueprint, jsonify, request
+from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
+from datetime import datetime
+from app.database import db
+from app.models.pending    import PendingApproval
+from app.models.vehicle    import Vehicle
+from app.models.student_id import StudentID
+from app.models.user       import User
+from app.models.access_log import AccessLog
+from app.services.gate_service    import open_gate
+from app.services.socket_service  import (
+    emit_approval_update,
+    emit_gate_status
+)
+from app.utils.decorators import admin_required
 
 approvals_bp = Blueprint("approvals", __name__)
 
-DUMMY_PENDING = [
-    {"id": 1, "identifier": "XYZ-9988", "type": "plate",  "image_path": None, "status": "pending", "created_at": "2025-05-21T14:19:03"},
-    {"id": 2, "identifier": "QRS-4421", "type": "plate",  "image_path": None, "status": "pending", "created_at": "2025-05-21T13:55:22"},
-]
 
 @approvals_bp.route("/pending", methods=["GET"])
+@jwt_required()
+@admin_required
 def get_pending():
-    pending = [p for p in DUMMY_PENDING if p["status"] == "pending"]
-    return jsonify({"total": len(pending), "pending": pending}), 200
+    status_filter = request.args.get("status", "pending")
+    items = PendingApproval.query\
+                .filter_by(status=status_filter)\
+                .order_by(PendingApproval.created_at.desc()).all()
+    return jsonify({
+        "total":   len(items),
+        "pending": [p.to_dict() for p in items]
+    }), 200
 
 
 @approvals_bp.route("/approve/<int:approval_id>", methods=["POST"])
+@jwt_required()
+@admin_required
 def approve(approval_id):
-    # Phase 2: will update DB and add to authorized list
+    reviewer_id = int(get_jwt_identity())
+    claims      = get_jwt()
+    approval    = PendingApproval.query.get_or_404(approval_id)
+    data        = request.get_json() or {}
+    open_now    = data.get("open_gate", False)
+
+    if approval.status != "pending":
+        return jsonify({"error": "Already reviewed"}), 400
+
+    approval.status      = "approved"
+    approval.reviewed_by = reviewer_id
+    approval.reviewed_at = datetime.utcnow()
+
+    new_user   = None
+    registered = False
+
+    if approval.id_type == "plate":
+        existing = Vehicle.query.filter_by(
+            plate_number=approval.identifier
+        ).first()
+        if not existing:
+            new_user = User(
+                name  = data.get("name", f"Visitor ({approval.identifier})"),
+                email = data.get("email"),
+                role  = data.get("role", "visitor")
+            )
+            db.session.add(new_user)
+            db.session.flush()
+            vehicle = Vehicle(
+                user_id      = new_user.id,
+                plate_number = approval.identifier,
+                vehicle_type = data.get("vehicle_type", "car"),
+                is_active    = True
+            )
+            db.session.add(vehicle)
+            registered = True
+        else:
+            existing.is_active = True
+            registered = True
+
+    elif approval.id_type == "barcode":
+        existing = StudentID.query.filter_by(
+            student_number=approval.identifier
+        ).first()
+        if not existing:
+            new_user = User(
+                name  = data.get("name", f"Student ({approval.identifier})"),
+                email = data.get("email"),
+                role  = "student"
+            )
+            db.session.add(new_user)
+            db.session.flush()
+            student = StudentID(
+                user_id        = new_user.id,
+                student_number = approval.identifier,
+                faculty        = data.get("faculty", "Unknown"),
+                is_active      = True
+            )
+            db.session.add(student)
+            registered = True
+
+    log = AccessLog(
+        user_id    = new_user.id if new_user else None,
+        identifier = approval.identifier,
+        id_type    = approval.id_type,
+        direction  = "entry",
+        status     = "granted",
+        timestamp  = datetime.utcnow()
+    )
+    db.session.add(log)
+    db.session.commit()
+
+    # Emit approval update — React Native pending screen updates live
+    emit_approval_update({
+        "pending_id":   approval_id,
+        "identifier":   approval.identifier,
+        "status":       "approved",
+        "reviewed_by":  claims.get("name", "Admin"),
+        "timestamp":    datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+    })
+
+    gate_result = None
+    if open_now:
+        gate_result = open_gate()
+        emit_gate_status("open", triggered_by=claims.get("name", "admin"))
+
     return jsonify({
-        "message": f"Approval {approval_id} approved (dummy)",
-        "id": approval_id,
-        "status": "approved"
+        "message":    "Approved. Entry authorized.",
+        "id":         approval_id,
+        "status":     "approved",
+        "registered": registered,
+        "gate":       gate_result
     }), 200
 
 
 @approvals_bp.route("/reject/<int:approval_id>", methods=["POST"])
+@jwt_required()
+@admin_required
 def reject(approval_id):
-    data = request.get_json() or {}
-    reason = data.get("reason", "No reason provided")
+    reviewer_id = int(get_jwt_identity())
+    claims      = get_jwt()
+    approval    = PendingApproval.query.get_or_404(approval_id)
+
+    if approval.status != "pending":
+        return jsonify({"error": "Already reviewed"}), 400
+
+    data   = request.get_json() or {}
+    reason = data.get("reason", "Rejected by admin")
+
+    approval.status      = "rejected"
+    approval.reason      = reason
+    approval.reviewed_by = reviewer_id
+    approval.reviewed_at = datetime.utcnow()
+
+    db.session.commit()
+
+    # Emit — React Native removes item from pending list
+    emit_approval_update({
+        "pending_id":  approval_id,
+        "identifier":  approval.identifier,
+        "status":      "rejected",
+        "reason":      reason,
+        "reviewed_by": claims.get("name", "Admin"),
+        "timestamp":   datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+    })
+
     return jsonify({
-        "message": f"Approval {approval_id} rejected (dummy)",
-        "id": approval_id,
-        "status": "rejected",
-        "reason": reason
+        "message": "Rejected.",
+        "id":      approval_id,
+        "status":  "rejected",
+        "reason":  reason
     }), 200
