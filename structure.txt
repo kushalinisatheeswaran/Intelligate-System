@@ -1,0 +1,63 @@
+.
+├── backend
+│   ├── app
+│   │   ├── __init__.py
+│   │   ├── config.py
+│   │   ├── database.py
+│   │   ├── models
+│   │   │   ├── __init__.py
+│   │   │   ├── access_log.py
+│   │   │   ├── administrator.py
+│   │   │   ├── device_token.py
+│   │   │   ├── notification.py
+│   │   │   ├── pending.py
+│   │   │   ├── student_id.py
+│   │   │   ├── user.py
+│   │   │   └── vehicle.py
+│   │   ├── routes
+│   │   │   ├── approvals.py
+│   │   │   ├── auth.py
+│   │   │   ├── devices.py
+│   │   │   ├── gate.py
+│   │   │   ├── logs.py
+│   │   │   ├── notifications.py
+│   │   │   ├── users.py
+│   │   │   └── verify.py
+│   │   ├── services
+│   │   │   ├── fcm_service.py
+│   │   │   ├── gate_service.py
+│   │   │   └── socket_service.py
+│   │   ├── socket_events.py
+│   │   └── utils
+│   │       ├── __init__.py
+│   │       ├── decorators.py
+│   │       └── validators.py
+│   ├── migrations
+│   │   ├── README
+│   │   ├── alembic.ini
+│   │   ├── env.py
+│   │   ├── script.py.mako
+│   │   └── versions
+│   │       └── 9849d3c773b6_initial_tables.py
+│   ├── requirements.txt
+│   ├── run.py
+│   ├── seed.py
+│   └── venv
+│       ├── bin
+│       │   ├── Activa
+.....
+│   └── tsconfig.json
+├── numberplate
+│   ├── db_check.py
+│   ├── detector.py
+│   ├── entry_attempts.log
+│   ├── gate_controller.py
+│   ├── main.py
+│   ├── models
+│   ├── ocr.py
+│   ├── requirements.txt
+│   ├── test.jpg
+│   └── unregistered.jpg
+└── structure.txt
+
+762 directories, 6201 files

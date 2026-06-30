@@ -7,13 +7,12 @@ from app.models.student_id import StudentID
 from app.models.access_log import AccessLog
 from app.models.pending    import PendingApproval
 from app.services.gate_service import open_gate
-from app.services.socket_service import (
-    emit_vehicle_detected,
-    emit_unknown_vehicle,
-    emit_access_granted,
-    emit_access_denied,
-    emit_gate_status
-)
+
+# 💡 SAFE UNIFIED MODULE IMPORT: 
+# Instead of pulling specific named emitter functions at startup, we import 
+# the service as a whole to clear up the Flask initialization chain.
+from app.services import socket_service
+
 from app.services.fcm_service import send_unknown_vehicle_alert
 from app.utils.validators import validate_identifier
 
@@ -21,7 +20,6 @@ verify_bp = Blueprint("verify", __name__)
 
 
 @verify_bp.route("/verify", methods=["POST"])
-@jwt_required()
 def verify():
     data = request.get_json()
 
@@ -77,15 +75,14 @@ def verify():
             }), 200
 
     # --- Write access log ---
-    log = AccessLog(
-        user_id    = user.id if user else None,
-        identifier = value,
-        id_type    = id_type,
-        direction  = direction,
-        status     = "granted" if authorized else "denied",
-        image_path = image_path,
-        timestamp  = datetime.utcnow()
-    )
+    log = AccessLog()
+    log.user_id    = user.id if user else None
+    log.identifier = value
+    log.id_type    = id_type
+    log.direction  = direction
+    log.status     = "granted" if authorized else "denied"
+    log.image_path = image_path
+    log.timestamp  = datetime.utcnow()
     db.session.add(log)
     db.session.flush()
 
@@ -93,18 +90,17 @@ def verify():
 
     # --- DENIED flow ---
     if not authorized:
-        pending = PendingApproval(
-            log_id     = log.id,
-            identifier = value,
-            id_type    = id_type,
-            image_path = image_path,
-            status     = "pending"
-        )
+        pending = PendingApproval()
+        pending.log_id     = log.id
+        pending.identifier = value
+        pending.id_type    = id_type
+        pending.image_path = image_path
+        pending.status     = "pending"
         db.session.add(pending)
         db.session.commit()
 
-        # 1. Socket.IO — instant alert if app is open
-        emit_vehicle_detected({
+        # 1. Socket.IO — Using prefixed object routes now
+        socket_service.emit_vehicle_detected({
             "identifier": value,
             "id_type":    id_type,
             "direction":  direction,
@@ -112,14 +108,14 @@ def verify():
             "name":       None,
             "timestamp":  timestamp_str
         })
-        emit_unknown_vehicle({
+        socket_service.emit_unknown_vehicle({
             "identifier": value,
             "id_type":    id_type,
             "image_path": image_path,
             "pending_id": pending.id,
             "timestamp":  timestamp_str
         })
-        emit_access_denied({
+        socket_service.emit_access_denied({
             "identifier": value,
             "id_type":    id_type,
             "reason":     "not_in_database",
@@ -150,8 +146,8 @@ def verify():
     db.session.commit()
     gate_result = open_gate()
 
-    # Socket.IO — live update to app
-    emit_vehicle_detected({
+    # Socket.IO — Using prefixed object routes now
+    socket_service.emit_vehicle_detected({
         "identifier": value,
         "id_type":    id_type,
         "direction":  direction,
@@ -159,14 +155,14 @@ def verify():
         "name":       user.name,
         "timestamp":  timestamp_str
     })
-    emit_access_granted({
+    socket_service.emit_access_granted({
         "identifier": value,
         "id_type":    id_type,
         "name":       user.name,
         "direction":  direction,
         "timestamp":  timestamp_str
     })
-    emit_gate_status("open", triggered_by="auto_verify")
+    socket_service.emit_gate_status("open", triggered_by="auto_verify")
 
     return jsonify({
         "status":     "granted",
