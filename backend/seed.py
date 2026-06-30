@@ -1,3 +1,4 @@
+from app.models.device_token import DeviceToken
 from app import create_app
 from app.database import db
 from app.models.user          import User
@@ -5,6 +6,8 @@ from app.models.vehicle       import Vehicle
 from app.models.student_id    import StudentID
 from app.models.administrator import Administrator
 from app.models.access_log    import AccessLog
+from app.models.pending import PendingApproval
+from app.models.device_token import DeviceToken
 from datetime import datetime, timedelta
 import random
 
@@ -12,13 +15,17 @@ app = create_app()
 
 with app.app_context():
     print("Clearing existing data...")
+    DeviceToken.query.delete()
+    PendingApproval.query.delete()
     AccessLog.query.delete()
     Administrator.query.delete()
     StudentID.query.delete()
     Vehicle.query.delete()
-    User.query.delete()
-    db.session.commit()
 
+    # PARENT LAST
+    User.query.delete()
+
+    db.session.commit()
     print("Creating users...")
     users = [
         User(name="B. Karthigan",  email="karthigan@uni.edu",  role="student"),

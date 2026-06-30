@@ -6,3 +6,5 @@ __pycache__/
 numberplate/unknown_plates/
 numberplate/test.jpg
 numberplate/unregistered.jpg
+
+firebase_service_account.json

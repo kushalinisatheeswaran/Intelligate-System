@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "116413472616",
+    "project_id": "intelligate-529a5",
+    "storage_bucket": "intelligate-529a5.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:116413472616:android:ae11f47c0d9b2cf5a900dd",
+        "android_client_info": {
+          "package_name": "com.intelligate.mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD2p-Ux-MdnEKCPM8DgOZNhyVYU-YPTbPM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

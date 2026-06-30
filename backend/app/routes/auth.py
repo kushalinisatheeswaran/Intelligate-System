@@ -6,12 +6,17 @@ from flask_jwt_extended import (
     get_jwt
 )
 from datetime import datetime
+
 from app.database import db
 from app.models.administrator import Administrator
+from app.models.user import User   # IMPORTANT FIX
 
 auth_bp = Blueprint("auth", __name__)
 
 
+# ======================================================
+# LOGIN
+# ======================================================
 @auth_bp.route("/auth/login", methods=["POST"])
 def login():
     data = request.get_json()
@@ -19,81 +24,101 @@ def login():
     if not data or not data.get("email") or not data.get("password"):
         return jsonify({"error": "Email and password required"}), 400
 
-    email    = data["email"].strip().lower()
+    email = data["email"].strip().lower()
     password = data["password"]
 
-    # Find admin account by email via relationship
-    admin = Administrator.query.join(Administrator.user)\
-                .filter_by(email=email).first()
+    print("\n" + "=" * 60)
+    print("LOGIN ATTEMPT")
+    print("EMAIL:", email)
 
-    if not admin or not admin.check_password(password):
+    admin = (
+        Administrator.query
+        .join(User, Administrator.user_id == User.id)
+        .filter(User.email == email)
+        .first()
+    )
+
+    print("ADMIN FOUND:", admin)
+
+    if not admin:
+        print("RESULT: USER NOT FOUND")
+        print("=" * 60)
         return jsonify({"error": "Invalid email or password"}), 401
 
-    if not admin.user.is_active:
+    password_ok = admin.check_password(password)
+
+    print("PASSWORD MATCH:", password_ok)
+
+    if not password_ok:
+        print("RESULT: PASSWORD INCORRECT")
+        print("=" * 60)
+        return jsonify({"error": "Invalid email or password"}), 401
+
+    if hasattr(admin.user, "is_active") and not admin.user.is_active:
+        print("RESULT: ACCOUNT DEACTIVATED")
+        print("=" * 60)
         return jsonify({"error": "Account is deactivated"}), 403
 
-    # Update last login timestamp
     admin.last_login = datetime.utcnow()
     db.session.commit()
 
-    # Create JWT with custom claims
-    # identity = admin user id (string required by flask-jwt-extended)
-    # additional_claims = role, name, email embedded in token
     access_token = create_access_token(
         identity=str(admin.user_id),
         additional_claims={
-            "role":     admin.role,
-            "name":     admin.user.name,
-            "email":    admin.user.email,
-            "admin_id": admin.id
-        }
+            "role": admin.role,
+            "name": admin.user.name,
+            "email": admin.user.email,
+            "admin_id": admin.id,
+        },
     )
 
+    print("RESULT: LOGIN SUCCESS")
+    print("=" * 60)
+
     return jsonify({
-        "message":      "Login successful",
+        "message": "Login successful",
         "access_token": access_token,
-        "token_type":   "Bearer",
+        "token_type": "Bearer",
         "user": {
-            "id":    admin.user_id,
-            "name":  admin.user.name,
+            "id": admin.user_id,
+            "name": admin.user.name,
             "email": admin.user.email,
-            "role":  admin.role
-        }
+            "role": admin.role,
+        },
     }), 200
-
-
+# ======================================================
+# GET CURRENT USER
+# ======================================================
 @auth_bp.route("/auth/me", methods=["GET"])
 @jwt_required()
 def me():
-    """
-    Returns the currently logged-in user's profile.
-    Frontend calls this on page load to verify token is still valid.
-    """
     claims = get_jwt()
+
     return jsonify({
-        "id":    get_jwt_identity(),
-        "name":  claims.get("name"),
+        "id": get_jwt_identity(),
+        "name": claims.get("name"),
         "email": claims.get("email"),
-        "role":  claims.get("role")
+        "role": claims.get("role")
     }), 200
 
 
+# ======================================================
+# LOGOUT (CLIENT SIDE JWT)
+# ======================================================
 @auth_bp.route("/auth/logout", methods=["POST"])
 @jwt_required()
 def logout():
-    """
-    Client-side logout — frontend deletes the token.
-    Phase 3 uses stateless JWT so no server-side blacklist yet.
-    If needed in production, use flask-jwt-extended's token blocklist.
-    """
     return jsonify({"message": "Logged out successfully"}), 200
 
 
+# ======================================================
+# CHANGE PASSWORD
+# ======================================================
 @auth_bp.route("/auth/change-password", methods=["POST"])
 @jwt_required()
 def change_password():
     user_id = get_jwt_identity()
-    data    = request.get_json()
+    data = request.get_json()
 
     old_password = data.get("old_password")
     new_password = data.get("new_password")
@@ -106,7 +131,10 @@ def change_password():
 
     admin = Administrator.query.filter_by(user_id=int(user_id)).first()
 
-    if not admin or not admin.check_password(old_password):
+    if not admin:
+        return jsonify({"error": "Admin not found"}), 404
+
+    if not admin.check_password(old_password):
         return jsonify({"error": "Current password is incorrect"}), 401
 
     admin.set_password(new_password)
