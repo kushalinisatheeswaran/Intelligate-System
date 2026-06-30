@@ -1,32 +1,40 @@
+import os
 import time
 import cv2
 import requests
 import re
+import serial  # 🔌 Added for USB communication to the ESP32
 from ocr import extract_plate_text
 
 def format_plate(text: str):
     """
-    Normalizes and validates OCR plate text.
-    Rules: Remove spaces/specials, uppercase, exactly 2-3 letters followed by 4 digits.
-    Returns formatted plate (e.g., AB-1234) or None if invalid.
+    Normalizes OCR plate text.
+    Returns cleaned alphanumeric string or None if empty.
     """
     if not text:
         return None
     cleaned = re.sub(r'[^A-Z0-9]', '', text.upper())
-    match = re.fullmatch(r'([A-Z]{2,3})([0-9]{4})', cleaned)
-    if match:
-        return f"{match.group(1)}-{match.group(2)}"
+    if len(cleaned) >= 4:
+        return cleaned
     return None
 
 # 💡 Target the production API route exposed by verify.py
 BACKEND_API_URL = "http://127.0.0.1:5050/api/verify"
 
 # Token placeholder since your blueprint uses @jwt_required()
-# If you don't use authentication checks for local nodes yet, you can temporarily disable @jwt_required() in verify.py
 HEADERS = {
     "Content-Type": "application/json"
     # "Authorization": "Bearer YOUR_JWT_TOKEN_HERE" # Add if required
 }
+
+# 🔌 Initialize Serial Link to ESP32 board
+try:
+    # Matches the exact USB serial port configuration on your Mac
+    esp32_serial = serial.Serial('/dev/cu.usbserial-0001', 115200, timeout=1)
+    print("🔌 Hardware Serial Link to ESP32 established successfully!")
+except Exception as e:
+    print(f"⚠️ Could not open USB Serial Port: {e}. Running pipeline in standalone simulation mode.")
+    esp32_serial = None
 
 cap = cv2.VideoCapture(0)
 print("🚀 Production HTTP-Driven ANPR Pipeline Active. Press 'q' to quit.")
@@ -66,19 +74,37 @@ while True:
         if is_new_vehicle or cooldown_expired:
             print(f"📸 Camera Node captured: {plate} -> Sending POST request...")
             
+            # Save the image
+            os.makedirs("unknown_plates", exist_ok=True)
+            image_path = f"unknown_plates/unknown_{plate}.jpg"
+            cv2.imwrite(image_path, frame)
+            
             payload = {
                 "type": "plate",
                 "value": plate,
                 "direction": "entry",
-                "image_path": f"numberplate/unknown_plates/unknown_{plate}.jpg"
+                "image_path": f"numberplate/{image_path}"
             }
             
             try:
-                # Fire standard synchronous HTTP payload
+                # Fire standard synchronous HTTP payload to Flask
                 response = requests.post(BACKEND_API_URL, json=payload, headers=HEADERS, timeout=3)
                 print(f"📡 Backend Response ({response.status_code}): {response.text}")
+                
+                # 🎯 THE HARDWARE BRIDGE TRIGGER
+                if response.status_code == 200:
+                    res_json = response.json()
+                    
+                    # Match against the exact successful payload key found in your database logs
+                    if res_json.get("status") == "granted":
+                        if esp32_serial and esp32_serial.is_open:
+                            print("⚡ Access Granted! Sending physical open signal via USB...")
+                            esp32_serial.write(b'O')  # Write data byte 'O' to open the servo gate
+                        else:
+                            print("⚠️ Serial target unavailable. Physical actuation command dropped.")
+                            
             except Exception as e:
-                print(f"⚠️ Network transmission delay: {e}")
+                print(f"⚠️ Transmission delay or serialization fault: {e}")
                 
             last_sent_plate = plate
             last_send_time = current_time
