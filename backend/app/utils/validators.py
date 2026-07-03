@@ -3,8 +3,8 @@ import re
 # Plate format: 2-3 letters, dash, 4 digits e.g. ABC-1234
 PLATE_PATTERN   = re.compile(r"^[A-Z]{2,3}-\d{4}$")
 
-# Student number format: YY/DEPT/NNN e.g. 23/ENG/062
-STUDENT_PATTERN = re.compile(r"^\d{2}/[A-Z]+/\d{3}$")
+# Student number format: numeric-only unique ID e.g. 113113
+STUDENT_PATTERN = re.compile(r"^\d+$")
 
 
 def validate_identifier(id_type: str, value: str) -> tuple[bool, str]:
@@ -19,7 +19,7 @@ def validate_identifier(id_type: str, value: str) -> tuple[bool, str]:
 
     if id_type == "barcode":
         if not STUDENT_PATTERN.match(value):
-            return False, f"Invalid student ID format: {value}. Expected e.g. 23/ENG/062"
+            return False, f"Invalid student ID format: {value}. Expected numeric ID e.g. 113113"
         return True, ""
 
     return False, f"Unknown type: {id_type}. Use 'plate' or 'barcode'"

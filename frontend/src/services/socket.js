@@ -1,12 +1,10 @@
 import { io } from "socket.io-client";
 import { SOCKET_URL } from "../constants/config";
 
-let socket = null;
-
 export const connectSocket = () => {
-  if (socket) return socket;
+  if (global.socketInstance) return global.socketInstance;
 
-  socket = io(SOCKET_URL, {
+  global.socketInstance = io(SOCKET_URL, {
     transports           : ["websocket"],
     reconnection         : true,
     reconnectionDelay    : 2000,
@@ -14,33 +12,33 @@ export const connectSocket = () => {
     forceNew             : false,
   });
 
-  socket.on("connect", () => {
-    console.log("[SOCKET] Connected:", socket.id);
+  global.socketInstance.on("connect", () => {
+    console.log("[SOCKET] Connected:", global.socketInstance.id);
     // Join guards room — Flask targets this room for security events
-    socket.emit("join_room", { room: "guards" });
+    global.socketInstance.emit("join_room", { room: "guards" });
   });
 
-  socket.on("connect_error", (err) => {
+  global.socketInstance.on("connect_error", (err) => {
     console.warn("[SOCKET] Connection error:", err.message);
   });
 
-  socket.on("disconnect", (reason) => {
+  global.socketInstance.on("disconnect", (reason) => {
     console.log("[SOCKET] Disconnected:", reason);
   });
 
-  return socket;
+  return global.socketInstance;
 };
 
 export const getSocket = () => {
-  if (!socket) {
+  if (!global.socketInstance) {
     return connectSocket();
   }
-  return socket;
+  return global.socketInstance;
 };
 
 export const disconnectSocket = () => {
-  if (socket) {
-    socket.disconnect();
-    socket = null;
+  if (global.socketInstance) {
+    global.socketInstance.disconnect();
+    global.socketInstance = null;
   }
 };

@@ -11,6 +11,9 @@ class Vehicle(db.Model):
     is_active    = db.Column(db.Boolean,    default=True)
     created_at   = db.Column(db.DateTime,   default=datetime.utcnow)
 
+    def __init__(self, **kwargs):
+        super(Vehicle, self).__init__(**kwargs)
+
     def to_dict(self):
         return {
             "id":           self.id,

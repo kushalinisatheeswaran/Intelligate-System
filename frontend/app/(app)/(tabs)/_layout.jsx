@@ -1,12 +1,13 @@
 import React from "react";
-import { Tabs } from "expo-router";
-import { Text, Platform } from "react-native";
+import { Tabs, useRouter } from "expo-router";
+import { Text, Platform, TouchableOpacity } from "react-native";
 
 function TabIcon({ icon }) {
   return <Text style={{ fontSize: 20 }}>{icon}</Text>;
 }
 
 export default function TabsLayout() {
+  const router = useRouter();
   return (
     <Tabs
       screenOptions={{
@@ -24,6 +25,15 @@ export default function TabsLayout() {
         headerStyle       : { backgroundColor: "#1D4ED8" },
         headerTintColor   : "#fff",
         headerTitleStyle  : { fontWeight: "700", fontSize: 17 },
+        headerRight       : () => (
+          <TouchableOpacity
+            onPress={() => router.push("/settings")}
+            style={{ marginRight: 15, padding: 5 }}
+            activeOpacity={0.7}
+          >
+            <Text style={{ fontSize: 20 }}>⚙️</Text>
+          </TouchableOpacity>
+        ),
       }}
     >
       <Tabs.Screen
