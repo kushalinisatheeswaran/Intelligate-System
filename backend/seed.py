@@ -1,3 +1,4 @@
+from app.models.device_token import DeviceToken
 from app import create_app
 from app.database import db
 from app.models.user          import User
@@ -5,6 +6,8 @@ from app.models.vehicle       import Vehicle
 from app.models.student_id    import StudentID
 from app.models.administrator import Administrator
 from app.models.access_log    import AccessLog
+from app.models.pending import PendingApproval
+from app.models.device_token import DeviceToken
 from datetime import datetime, timedelta
 import random
 
@@ -12,13 +15,17 @@ app = create_app()
 
 with app.app_context():
     print("Clearing existing data...")
+    DeviceToken.query.delete()
+    PendingApproval.query.delete()
     AccessLog.query.delete()
     Administrator.query.delete()
     StudentID.query.delete()
     Vehicle.query.delete()
-    User.query.delete()
-    db.session.commit()
 
+    # PARENT LAST
+    User.query.delete()
+
+    db.session.commit()
     print("Creating users...")
     users = [
         User(name="B. Karthigan",  email="karthigan@uni.edu",  role="student"),
@@ -43,9 +50,9 @@ with app.app_context():
 
     print("Creating student IDs...")
     student_ids = [
-        StudentID(user_id=users[0].id, student_number="23/ENG/062", faculty="Engineering"),
-        StudentID(user_id=users[1].id, student_number="23/ENG/070", faculty="Engineering"),
-        StudentID(user_id=users[2].id, student_number="23/ENG/138", faculty="Engineering"),
+        StudentID(user_id=users[0].id, student_number="113113", faculty="Engineering"),
+        StudentID(user_id=users[1].id, student_number="113114", faculty="Engineering"),
+        StudentID(user_id=users[2].id, student_number="113115", faculty="Engineering"),
     ]
     for s in student_ids:
         db.session.add(s)
@@ -62,8 +69,8 @@ with app.app_context():
     identifiers = [
         ("ABC-1234", "plate",   "granted", users[0].id),
         ("XYZ-5678", "plate",   "granted", users[1].id),
-        ("23/ENG/062","barcode","granted", users[0].id),
-        ("23/ENG/070","barcode","granted", users[1].id),
+        ("113113",   "barcode", "granted", users[0].id),
+        ("113114",   "barcode", "granted", users[1].id),
         ("UNKNOWN-1", "plate",  "denied",  None),
         ("UNKNOWN-2", "plate",  "denied",  None),
     ]

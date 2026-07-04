@@ -7,3 +7,5 @@ numberplate/unknown_plates/
 numberplate/test.jpg
 numberplate/unregistered.jpg
 backend/test_db_match.py
+firebase_service_account.json
+google-services.json

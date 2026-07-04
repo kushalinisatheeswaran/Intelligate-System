@@ -16,6 +16,9 @@ class AccessLog(db.Model):
     image_path       = db.Column(db.String(255), nullable=True)
     timestamp        = db.Column(db.DateTime,    default=datetime.utcnow)
 
+    def __init__(self, **kwargs):
+        super(AccessLog, self).__init__(**kwargs)
+
     def to_dict(self):
         return {
             "id":               self.id,
