@@ -57,3 +57,15 @@ def register_socket_events(socketio):
             emit_gate_status("closed", triggered_by="Admin Manual Control")
         else:
             logger.warning(f"[SOCKET] Invalid gate_command received: {command}")
+
+    @socketio.on("arduino_ack")
+    def on_arduino_ack(data):
+        """
+        Feedback from the Arduino hardware controller (via ANPR client).
+        """
+        state = data.get("state", "").upper()
+        logger.info(f"[SOCKET] Received Arduino ACK: {state}")
+        from app.services.state_machine import gate_state_machine
+        if state == "OPENED":
+            state = "OPEN"
+        gate_state_machine.transition_to(state)

@@ -2,59 +2,25 @@ import os
 import time
 import cv2
 import requests
-import re
-import serial
 import socketio
+
 from ocr import extract_plate_text
+from ocr_manager import OCRManager
+from arduino_manager import ArduinoManager
 
 # =========================
 # CONFIG
 # =========================
 BACKEND_API_URL = "http://127.0.0.1:5050/api/verify"
-
 HEADERS = {
     "Content-Type": "application/json"
-    # "Authorization": "Bearer YOUR_JWT_TOKEN"  # Un-comment if JWT is enabled
 }
-
-# =========================
-# PLATE FORMATTER
-# =========================
-def format_plate(text: str):
-    """
-    Converts OCR output into strict format: ABC-1234
-    """
-    if not text:
-        return None
-
-    cleaned = re.sub(r'[^A-Z0-9]', '', text.upper())
-
-    match = re.match(r'^([A-Z]{2,3})(\d{4})$', cleaned)
-    if match:
-        return f"{match.group(1)}-{match.group(2)}"
-
-    return None
-
-
-# =========================
-# ARDUINO NANO SERIAL SETUP
-# =========================
-SERIAL_PORT = "/dev/cu.usbserial-120"  # Your active MacBook Air port
-BAUD_RATE = 115200
-
-try:
-    nano_serial = serial.Serial(SERIAL_PORT, BAUD_RATE, timeout=1)
-    print("🔌 Arduino Nano connected successfully!")
-    time.sleep(2) # Allow Arduino bootloader auto-reset to settle securely
-except Exception as e:
-    print(f"⚠️ Arduino Nano not connected on {SERIAL_PORT}: {e}")
-    nano_serial = None
-
 
 # =========================
 # SOCKET.IO CLIENT SETUP
 # =========================
 sio = socketio.Client()
+arduino = None
 
 @sio.event
 def connect():
@@ -67,43 +33,35 @@ def disconnect():
 @sio.on("execute_gate_action")
 def on_execute_gate_action(data):
     action = data.get("action", "").upper()
-    print(f"📡 Socket.IO execute_gate_action received: {action}")
-    if action in ("OPEN", "CLOSE"):
-        if nano_serial and nano_serial.is_open:
-            nano_serial.reset_input_buffer()
-            nano_serial.reset_output_buffer()
-            nano_serial.write(f"{action}\n".encode("utf-8"))
-            print(f"⚡ Gate {action} signal sent to Arduino Nano from Socket.IO override.")
-        else:
-            print("⚠️ Arduino Nano connection not open for manual override")
+    print(f"📡 Socket.IO execute_gate_action: {action}")
+    if arduino:
+        arduino.send_command(action)
 
+# Try connection to Socket.IO backend
 try:
     sio.connect("http://127.0.0.1:5050")
 except Exception as e:
     print(f"⚠️ Failed to connect to Socket.IO backend: {e}")
 
+# =========================
+# ARDUINO MANAGER INIT
+# =========================
+SERIAL_PORT = "/dev/cu.usbserial-120"
+arduino = ArduinoManager(port=SERIAL_PORT, baud=115200, socket_client=sio)
+arduino.connect()
 
 # =========================
-# CAMERA INIT
+# OCR & SESSION CONTROL
 # =========================
+ocr = OCRManager(confirm_threshold=3, history_window=6)
 cap = cv2.VideoCapture(0)
 
-print("🚀 ANPR System Started. Press 'q' to quit.")
-
-# =========================
-# STATE CONTROL
-# =========================
 last_sent_plate = None
-last_send_time = 0
-SEND_COOLDOWN = 10.0
-
+last_send_time = 0.0
+SEND_COOLDOWN = 10.0  # seconds debounce window
 empty_counter = 0
-empty_reset_time = 3.0
 
-
-# =========================
-# MAIN LOOP
-# =========================
+print("🚀 ANPR System Started. Press 'q' to quit.")
 frame_count = 0
 
 while True:
@@ -112,35 +70,48 @@ while True:
         break
 
     frame_count += 1
-    # D. OCR Optimization: Process every 5th frame to reduce CPU load, but display every frame smoothly
+    # Process every 5th frame to reduce load while keeping rendering smooth
     if frame_count % 5 != 0:
         cv2.imshow("ANPR System", frame)
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
         continue
 
-    plate = extract_plate_text(frame)
+    # Use standard ROI detection from ocr.py
+    from ocr import get_plate_region
+    roi, bbox = get_plate_region(frame)
+    if roi is None:
+        roi = frame
 
-    if plate:
-        raw = plate
-        formatted = format_plate(raw)
+    # 1. OCR Preprocess and Read
+    from ocr import preprocess_for_ocr, OCR_CONFIG
+    import pytesseract
+    binary = preprocess_for_ocr(roi)
+    try:
+        raw_text = pytesseract.image_to_string(binary, config=OCR_CONFIG)
+        raw_text = raw_text.strip().replace("\n", "").replace("\r", "")
+    except Exception:
+        raw_text = None
 
-        # If it fails format check, we still send the raw text to the backend so the backend
-        # can log it as an UNKNOWN_VEHICLE and trigger appropriate alert events.
-        plate_to_send = formatted if formatted else raw
+    # 2. OCR Stabilization
+    stabilized_plate = ocr.stabilise(raw_text) if raw_text else None
 
-        print(f"🔍 OCR: Raw={raw} | Formatted={formatted} | Target={plate_to_send}")
+    if stabilized_plate:
+        # 3. OCR Format Verification
+        formatted = ocr.format_plate(stabilized_plate)
+        plate_to_send = formatted if formatted else stabilized_plate
+
+        print(f"🔍 Stabilized OCR: Raw={raw_text} | Formatted={formatted} | Target={plate_to_send}")
         empty_counter = 0
 
+        # Debouncing
         current_time = time.time()
-
         is_new = plate_to_send != last_sent_plate
         cooldown_ok = (current_time - last_send_time) > SEND_COOLDOWN
 
         if is_new or cooldown_ok:
             print(f"📸 Sending plate to backend: {plate_to_send}")
 
-            # Save image
             os.makedirs("unknown_plates", exist_ok=True)
             image_path = f"unknown_plates/{plate_to_send}_{int(current_time)}.jpg"
             cv2.imwrite(image_path, frame)
@@ -159,51 +130,30 @@ while True:
                     headers=HEADERS,
                     timeout=3
                 )
-
-                print(f"📡 Backend: {response.status_code} {response.text}")
-
+                print(f"📡 Backend Response: {response.status_code} {response.text}")
+                
                 if response.status_code == 200:
                     data = response.json()
-
-                    if data.get("status") == "granted" or data.get("message") == "granted":
-                        print("🚪 Access Granted!")
-
-                        if nano_serial and nano_serial.is_open:
-                            nano_serial.reset_input_buffer()
-                            nano_serial.reset_output_buffer()
-                            nano_serial.write(b"OPEN\n")
-                            print("⚡ Gate OPEN signal sent to Arduino Nano. Waiting for hardware sequence...")
-                            
-                            while True:
-                                line = nano_serial.readline().decode('utf-8').strip()
-                                if "Gate Cycle Completed" in line:
-                                    print("⚙️ Hardware Message: Gate cycle finished cleanly.")
-                                    break
-                                elif line:
-                                    print(f"⚙️ Hardware Log: {line}")
-                            
-                            current_time = time.time()
-                        else:
-                            print("⚠️ Arduino Nano connection not open")
-                    elif data.get("status") == "ignored":
+                    status = data.get("status")
+                    if status == "granted" or data.get("message") == "granted":
+                        print("🚪 Access Granted! Backend triggers gate opening sequence.")
+                    elif status == "ignored":
                         print("ℹ️ Duplicate detection ignored by Backend.")
                     else:
                         print("🔒 Access Denied by Backend.")
-
             except Exception as e:
-                print(f"⚠️ Request failed: {e}")
+                print(f"⚠️ Verification request failed: {e}")
 
             last_sent_plate = plate_to_send
             last_send_time = current_time
 
     else:
-        # Lane empty detection / exit event
+        # Lane empty detection
         if last_sent_plate:
             empty_counter += 1
-
-            if empty_counter > 6:  # Since we process every 5th frame, 6 * 5 = 30 frames (~1-2 seconds)
+            if empty_counter > 6:  # ~1.5 - 2 seconds (6 * 5 = 30 frames)
                 print("🏁 Lane cleared")
-                # Clear session in backend so the vehicle state is reset
+                # Clear session on backend
                 try:
                     clear_url = BACKEND_API_URL.replace("/verify", "/lane/clear")
                     requests.post(
@@ -217,12 +167,15 @@ while True:
 
                 last_sent_plate = None
                 empty_counter = 0
+                ocr.reset()
 
-    # Display camera view
+    # Display video feed
     cv2.imshow("ANPR System", frame)
-
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
 
+# Cleanup
 cap.release()
 cv2.destroyAllWindows()
+arduino.close()
+sio.disconnect()

@@ -34,7 +34,23 @@ def verify():
     if direction not in ("entry", "exit"):
         return jsonify({"error": "direction must be 'entry' or 'exit'"}), 400
 
-    # 1. State Machine / Session Check for plates
+    # 1. Database duplicate protection window (5 seconds sliding window)
+    from datetime import timedelta
+    five_seconds_ago = datetime.utcnow() - timedelta(seconds=5)
+    recent_log = AccessLog.query.filter(
+        AccessLog.identifier == value,
+        AccessLog.direction == direction,
+        AccessLog.timestamp >= five_seconds_ago
+    ).first()
+    
+    if recent_log:
+        return jsonify({
+            "status": "ignored",
+            "identifier": value,
+            "message": "Duplicate verification request ignored (sliding window)"
+        }), 200
+
+    # 2. State Machine / Session Check for plates
     if id_type == "plate":
         from app.services.session_service import session_manager
         if not session_manager.can_process_plate(value):

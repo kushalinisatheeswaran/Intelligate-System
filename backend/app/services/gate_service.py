@@ -87,16 +87,30 @@ def open_gate() -> dict:
     Opens the gate and schedules auto-close.
     Called by /api/verify on granted access and /api/gate/open for manual override.
     """
-    logger.info("[GATE] OPEN command triggered")
+    from app.services.state_machine import gate_state_machine
+    current_state = gate_state_machine.get_state()
+    if current_state in ("OPEN", "OPENING"):
+        logger.info(f"[GATE] Ignoring OPEN command. Gate is already {current_state}")
+        return {"status": "ignored", "message": f"Gate is already {current_state}", "gate": current_state.lower()}
 
+    logger.info("[GATE] OPEN command triggered")
+    gate_state_machine.transition_to("OPENING")
+
+    result = {}
     if ESP32_MODE == "serial":
         result = _send_serial_command("OPEN")
     elif ESP32_MODE == "http":
         result = _send_http_command("OPEN")
     else:
         # Stub mode — for development without hardware
-        logger.info("[GATE STUB] OPEN — no hardware connected")
-        result = {"status": "ok", "gate": "open", "mode": "stub"}
+        logger.info("[GATE STUB] OPEN — simulating opening sequence")
+        result = {"status": "ok", "gate": "opening", "mode": "stub"}
+        
+        # Simulate hardware ACK transitions for stub mode
+        def simulate_stub_open():
+            time.sleep(1.5)
+            gate_state_machine.transition_to("OPEN")
+        threading.Thread(target=simulate_stub_open, daemon=True).start()
 
     # Broadcast execute_gate_action via Socket.IO
     try:
@@ -109,7 +123,7 @@ def open_gate() -> dict:
     thread = threading.Thread(target=_auto_close_gate, daemon=True)
     thread.start()
 
-    result["gate"]            = "open"
+    result["gate"]            = "opening"
     result["auto_close_in"]   = f"{GATE_OPEN_DURATION}s"
     return result
 
@@ -119,15 +133,29 @@ def close_gate() -> dict:
     Closes the gate.
     Called automatically after open duration or manually via /api/gate/close.
     """
-    logger.info("[GATE] CLOSE command triggered")
+    from app.services.state_machine import gate_state_machine
+    current_state = gate_state_machine.get_state()
+    if current_state in ("CLOSED", "CLOSING"):
+        logger.info(f"[GATE] Ignoring CLOSE command. Gate is already {current_state}")
+        return {"status": "ignored", "message": f"Gate is already {current_state}", "gate": current_state.lower()}
 
+    logger.info("[GATE] CLOSE command triggered")
+    gate_state_machine.transition_to("CLOSING")
+
+    result = {}
     if ESP32_MODE == "serial":
         result = _send_serial_command("CLOSE")
     elif ESP32_MODE == "http":
         result = _send_http_command("CLOSE")
     else:
-        logger.info("[GATE STUB] CLOSE — no hardware connected")
-        result = {"status": "ok", "gate": "closed", "mode": "stub"}
+        logger.info("[GATE STUB] CLOSE — simulating closing sequence")
+        result = {"status": "ok", "gate": "closing", "mode": "stub"}
+
+        # Simulate hardware ACK transitions for stub mode
+        def simulate_stub_close():
+            time.sleep(1.5)
+            gate_state_machine.transition_to("CLOSED")
+        threading.Thread(target=simulate_stub_close, daemon=True).start()
 
     # Broadcast execute_gate_action via Socket.IO
     try:
@@ -136,5 +164,5 @@ def close_gate() -> dict:
     except Exception as e:
         logger.error(f"[GATE] Failed to emit execute_gate_action CLOSE: {e}")
 
-    result["gate"] = "closed"
+    result["gate"] = "closing"
     return result
