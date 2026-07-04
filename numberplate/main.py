@@ -4,6 +4,7 @@ import cv2
 import requests
 import re
 import serial
+import socketio
 from ocr import extract_plate_text
 
 # =========================
@@ -48,6 +49,38 @@ try:
 except Exception as e:
     print(f"⚠️ Arduino Nano not connected on {SERIAL_PORT}: {e}")
     nano_serial = None
+
+
+# =========================
+# SOCKET.IO CLIENT SETUP
+# =========================
+sio = socketio.Client()
+
+@sio.event
+def connect():
+    print("📡 Connected to Socket.IO backend!")
+
+@sio.event
+def disconnect():
+    print("📡 Disconnected from Socket.IO backend!")
+
+@sio.on("execute_gate_action")
+def on_execute_gate_action(data):
+    action = data.get("action", "").upper()
+    print(f"📡 Socket.IO execute_gate_action received: {action}")
+    if action in ("OPEN", "CLOSE"):
+        if nano_serial and nano_serial.is_open:
+            nano_serial.reset_input_buffer()
+            nano_serial.reset_output_buffer()
+            nano_serial.write(f"{action}\n".encode("utf-8"))
+            print(f"⚡ Gate {action} signal sent to Arduino Nano from Socket.IO override.")
+        else:
+            print("⚠️ Arduino Nano connection not open for manual override")
+
+try:
+    sio.connect("http://127.0.0.1:5050")
+except Exception as e:
+    print(f"⚠️ Failed to connect to Socket.IO backend: {e}")
 
 
 # =========================

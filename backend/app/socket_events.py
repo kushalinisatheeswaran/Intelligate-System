@@ -51,11 +51,9 @@ def register_socket_events(socketio):
 
         if command == "OPEN":
             open_gate()
-            socketio.emit("execute_gate_action", {"action": "OPEN"})
             emit_gate_status("open", triggered_by="Admin Manual Control")
         elif command == "CLOSE":
             close_gate()
-            socketio.emit("execute_gate_action", {"action": "CLOSE"})
             emit_gate_status("closed", triggered_by="Admin Manual Control")
         else:
             logger.warning(f"[SOCKET] Invalid gate_command received: {command}")

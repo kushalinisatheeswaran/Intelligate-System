@@ -98,6 +98,13 @@ def open_gate() -> dict:
         logger.info("[GATE STUB] OPEN — no hardware connected")
         result = {"status": "ok", "gate": "open", "mode": "stub"}
 
+    # Broadcast execute_gate_action via Socket.IO
+    try:
+        from app.services.socket_service import socketio
+        socketio.emit("execute_gate_action", {"action": "OPEN"})
+    except Exception as e:
+        logger.error(f"[GATE] Failed to emit execute_gate_action OPEN: {e}")
+
     # Schedule auto-close in background thread
     thread = threading.Thread(target=_auto_close_gate, daemon=True)
     thread.start()
@@ -121,6 +128,13 @@ def close_gate() -> dict:
     else:
         logger.info("[GATE STUB] CLOSE — no hardware connected")
         result = {"status": "ok", "gate": "closed", "mode": "stub"}
+
+    # Broadcast execute_gate_action via Socket.IO
+    try:
+        from app.services.socket_service import socketio
+        socketio.emit("execute_gate_action", {"action": "CLOSE"})
+    except Exception as e:
+        logger.error(f"[GATE] Failed to emit execute_gate_action CLOSE: {e}")
 
     result["gate"] = "closed"
     return result
