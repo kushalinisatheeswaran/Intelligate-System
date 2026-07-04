@@ -36,7 +36,7 @@ with app.app_context():
     vehicles = [
         Vehicle(user_id=users[0].id, plate_number="ABC-1234", vehicle_type="car"),
         Vehicle(user_id=users[1].id, plate_number="XYZ-5678", vehicle_type="car"),
-        Vehicle(user_id=users[3].id, plate_number="STF-0011", vehicle_type="car"),
+        Vehicle(user_id=users[3].id, plate_number="CBGG-558", vehicle_type="car"),
     ]
     for v in vehicles:
         db.session.add(v)
