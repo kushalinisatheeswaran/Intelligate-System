@@ -6,7 +6,7 @@ import React, {
   useCallback,
 } from "react";
 import * as SecureStore from "expo-secure-store";
-import api, { registerUnauthorizedCallback } from "../services/api";
+import api, { registerUnauthorizedCallback, setAuthToken } from "../services/api";
 import { connectSocket, disconnectSocket } from "../services/socket";
 import {
   registerForPushNotifications,
@@ -39,6 +39,7 @@ export function AuthProvider({ children }) {
       try {
         const token = await SecureStore.getItemAsync("jwt_token");
         if (token) {
+          setAuthToken(token);
           const res = await api.get("/auth/me");
           setUser(res.data);
           connectSocket();
@@ -67,6 +68,7 @@ export function AuthProvider({ children }) {
 
     // Persist JWT securely on device
     await SecureStore.setItemAsync("jwt_token", access_token);
+    setAuthToken(access_token);
     setUser(userData);
 
     // Start Socket.IO connection
@@ -86,6 +88,7 @@ export function AuthProvider({ children }) {
       // Ignore errors on logout — proceed regardless
     } finally {
       await SecureStore.deleteItemAsync("jwt_token");
+      setAuthToken(null);
       disconnectSocket();
       setUser(null);
     }
