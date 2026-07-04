@@ -13,7 +13,10 @@ export const SOCKET_EVENTS = {
   UNKNOWN_VEHICLE: "unknown_vehicle",
   ACCESS_GRANTED: "access_granted",
   ACCESS_DENIED: "access_denied",
-  GATE_STATUS: "gate_status",
+  GATE_STATUS: "gate_status_update",  // Standardized event name
+  GATE_STATUS_UPDATE: "gate_status_update",
+  GATE_COMMAND: "gate_command",
+  ALERT_EVENT: "alert_event",
   APPROVAL_UPDATE: "approval_update",
 };
 
