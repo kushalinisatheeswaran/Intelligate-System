@@ -14,6 +14,9 @@ class Administrator(db.Model):
 
     user = db.relationship("User", backref="admin_profile", lazy=True)
 
+    def __init__(self, **kwargs):
+        super(Administrator, self).__init__(**kwargs)
+
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
 

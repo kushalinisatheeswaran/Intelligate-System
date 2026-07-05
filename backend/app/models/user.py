@@ -16,6 +16,9 @@ class User(db.Model):
     student_ids = db.relationship("StudentID", backref="user", lazy=True)
     access_logs = db.relationship("AccessLog", backref="user", lazy=True)
 
+    def __init__(self, **kwargs):
+        super(User, self).__init__(**kwargs)
+
     def to_dict(self):
         return {
             "id":         self.id,

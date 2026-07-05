@@ -1,0 +1,1999 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IntelliGate — System Architecture & Workflow Visualizer</title>
+    <!-- Google Fonts: Inter & Outfit -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0b0f19;
+            --bg-secondary: #111827;
+            --bg-card: rgba(17, 24, 39, 0.7);
+            --border-color: rgba(255, 255, 255, 0.08);
+            --primary: #3b82f6;
+            --primary-glow: rgba(59, 130, 246, 0.35);
+            --success: #10b981;
+            --success-glow: rgba(16, 185, 129, 0.3);
+            --danger: #ef4444;
+            --danger-glow: rgba(239, 68, 68, 0.3);
+            --warning: #f59e0b;
+            --warning-glow: rgba(245, 158, 11, 0.3);
+            --text-main: #f3f4f6;
+            --text-muted: #9ca3af;
+            --font-outfit: 'Outfit', sans-serif;
+            --font-inter: 'Inter', sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: var(--font-inter);
+            background-color: var(--bg-primary);
+            color: var(--text-main);
+            overflow-x: hidden;
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.15) 0px, transparent 50%),
+                radial-gradient(at 50% 0%, rgba(124, 58, 237, 0.1) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.08) 0px, transparent 50%);
+            background-attachment: fixed;
+        }
+
+        /* Layout Structure */
+        header {
+            padding: 2rem 4rem 1rem 4rem;
+            border-bottom: 1px solid var(--border-color);
+            background: rgba(11, 15, 25, 0.8);
+            backdrop-filter: blur(12px);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo-section h1 {
+            font-family: var(--font-outfit);
+            font-size: 1.8rem;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .logo-section h1 span {
+            color: var(--primary);
+            text-shadow: 0 0 15px var(--primary-glow);
+        }
+
+        .logo-section p {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-top: 0.2rem;
+        }
+
+        .team-badge {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border-color);
+            padding: 0.5rem 1rem;
+            border-radius: 12px;
+            text-align: right;
+            font-size: 0.8rem;
+        }
+
+        .team-badge div {
+            font-weight: 600;
+            color: #fff;
+        }
+
+        .team-badge span {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+        }
+
+        /* Navigation Tabs */
+        .tabs-container {
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
+            margin: 1.5rem 4rem;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--border-color);
+            padding: 0.4rem;
+            border-radius: 14px;
+            backdrop-filter: blur(10px);
+        }
+
+        .tab-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            padding: 0.8rem 1.6rem;
+            font-family: var(--font-outfit);
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            border-radius: 10px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .tab-btn:hover {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.04);
+        }
+
+        .tab-btn.active {
+            color: #fff;
+            background: var(--primary);
+            box-shadow: 0 4px 15px var(--primary-glow);
+        }
+
+        /* Main Workspace */
+        main {
+            padding: 0 4rem 4rem 4rem;
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        .tab-content {
+            display: none;
+            animation: fadeIn 0.4s ease-out forwards;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Cards & Glassmorphism */
+        .glass-card {
+            background: var(--bg-card);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 2rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+            margin-bottom: 2rem;
+        }
+
+        .card-header {
+            margin-bottom: 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 1rem;
+        }
+
+        .card-title {
+            font-family: var(--font-outfit);
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .card-description {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-top: 0.4rem;
+        }
+
+        /* Tab 1: System Architecture Visuals */
+        .architecture-grid {
+            display: grid;
+            grid-template-columns: 3fr 1fr;
+            gap: 2rem;
+        }
+
+        .arch-svg-container {
+            background: #0d121f;
+            border-radius: 12px;
+            padding: 1.5rem;
+            border: 1px solid var(--border-color);
+            position: relative;
+            min-height: 550px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* Node detailing side panel */
+        .node-info-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .node-detail-card {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .node-detail-card h4 {
+            font-family: var(--font-outfit);
+            color: var(--primary);
+            font-weight: 600;
+            margin-bottom: 0.4rem;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .node-detail-card p {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            line-height: 1.4;
+        }
+
+        /* Tab 2: Live Simulator & Workflow Flowchart */
+        .simulator-layout {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+        }
+
+        .controls-card {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .simulation-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        .sim-btn {
+            padding: 1rem;
+            border-radius: 10px;
+            font-weight: 600;
+            font-family: var(--font-outfit);
+            cursor: pointer;
+            border: 1px solid transparent;
+            transition: all 0.2s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.4rem;
+            text-align: center;
+        }
+
+        .sim-btn.authorized-user {
+            background: rgba(16, 185, 129, 0.1);
+            border-color: rgba(16, 185, 129, 0.2);
+            color: var(--success);
+        }
+        .sim-btn.authorized-user:hover {
+            background: rgba(16, 185, 129, 0.2);
+            box-shadow: 0 4px 15px var(--success-glow);
+        }
+
+        .sim-btn.authorized-vehicle {
+            background: rgba(59, 130, 246, 0.1);
+            border-color: rgba(59, 130, 246, 0.2);
+            color: var(--primary);
+        }
+        .sim-btn.authorized-vehicle:hover {
+            background: rgba(59, 130, 246, 0.2);
+            box-shadow: 0 4px 15px var(--primary-glow);
+        }
+
+        .sim-btn.unauthorized-user {
+            background: rgba(245, 158, 11, 0.1);
+            border-color: rgba(245, 158, 11, 0.2);
+            color: var(--warning);
+        }
+        .sim-btn.unauthorized-user:hover {
+            background: rgba(245, 158, 11, 0.2);
+            box-shadow: 0 4px 15px var(--warning-glow);
+        }
+
+        .sim-btn.unauthorized-vehicle {
+            background: rgba(239, 68, 68, 0.1);
+            border-color: rgba(239, 68, 68, 0.2);
+            color: var(--danger);
+        }
+        .sim-btn.unauthorized-vehicle:hover {
+            background: rgba(239, 68, 68, 0.2);
+            box-shadow: 0 4px 15px var(--danger-glow);
+        }
+
+        .sim-btn span {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            font-weight: 400;
+        }
+
+        /* Simulated Terminal Logs */
+        .terminal-container {
+            background: #05070c;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1rem;
+            font-family: monospace;
+            font-size: 0.85rem;
+            height: 250px;
+            overflow-y: auto;
+            color: #38bdf8;
+            box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.8);
+        }
+
+        .terminal-line {
+            margin-bottom: 0.4rem;
+            line-height: 1.4;
+            opacity: 0.9;
+        }
+
+        .terminal-line.timestamp {
+            color: #6b7280;
+        }
+
+        .terminal-line.info {
+            color: #a78bfa;
+        }
+
+        .terminal-line.success {
+            color: #34d399;
+        }
+
+        .terminal-line.error {
+            color: #f87171;
+        }
+
+        .terminal-line.warning {
+            color: #fbbf24;
+        }
+
+        /* Interactive Gate Animation & Phone Screen */
+        .preview-pane {
+            display: grid;
+            grid-template-rows: 3fr 2fr;
+            gap: 1.5rem;
+        }
+
+        .gate-visualization {
+            background: #0d121f;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 1.5rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .gate-title {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 1rem;
+            font-weight: bold;
+        }
+
+        .gate-hardware {
+            width: 260px;
+            height: 140px;
+            position: relative;
+        }
+
+        /* SVG Gate styles */
+        .gate-pillar {
+            fill: #4b5563;
+        }
+        .gate-arm {
+            fill: #ef4444;
+            transform-origin: 20px 100px;
+            transition: transform 1.5s cubic-bezier(0.4, 0, 0.2, 1);
+            transform: rotate(0deg);
+        }
+        .gate-arm.open {
+            transform: rotate(-75deg);
+        }
+        .gate-light {
+            fill: #ef4444;
+            transition: fill 0.3s ease;
+        }
+        .gate-light.open {
+            fill: #10b981;
+        }
+
+        .phone-mockup-panel {
+            background: #0d121f;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .sim-phone {
+            width: 320px;
+            background: #181c26;
+            border: 4px solid #374151;
+            border-radius: 20px;
+            padding: 0.8rem;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            position: relative;
+        }
+
+        .phone-header {
+            font-size: 0.7rem;
+            display: flex;
+            justify-content: space-between;
+            color: var(--text-muted);
+            margin-bottom: 0.6rem;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            padding-bottom: 0.4rem;
+        }
+
+        .phone-notification {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 0.6rem;
+            display: flex;
+            gap: 0.5rem;
+            align-items: flex-start;
+            transform: translateY(20px);
+            opacity: 0;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .phone-notification.active {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        .notification-icon {
+            background: var(--danger);
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            flex-shrink: 0;
+        }
+
+        .notification-body h5 {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #fff;
+        }
+
+        .notification-body p {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            margin-top: 0.15rem;
+        }
+
+        .notification-actions {
+            display: flex;
+            gap: 0.4rem;
+            margin-top: 0.4rem;
+        }
+
+        .phone-btn {
+            padding: 0.25rem 0.6rem;
+            border-radius: 4px;
+            border: none;
+            font-size: 0.6rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .phone-btn.approve {
+            background: var(--success);
+            color: #fff;
+        }
+
+        .phone-btn.deny {
+            background: var(--danger);
+            color: #fff;
+        }
+
+        /* Tab 3: Timeline of Development Phases */
+        .timeline {
+            position: relative;
+            max-width: 1000px;
+            margin: 2rem auto;
+        }
+
+        .timeline::after {
+            content: '';
+            position: absolute;
+            width: 4px;
+            background: var(--border-color);
+            top: 0;
+            bottom: 0;
+            left: 50%;
+            margin-left: -2px;
+        }
+
+        .timeline-item {
+            padding: 10px 40px;
+            position: relative;
+            background-color: inherit;
+            width: 50%;
+        }
+
+        .timeline-item::after {
+            content: '';
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            right: -10px;
+            background-color: var(--bg-secondary);
+            border: 4px solid var(--primary);
+            top: 15px;
+            border-radius: 50%;
+            z-index: 1;
+            transition: all 0.3s ease;
+        }
+
+        .left {
+            left: 0;
+        }
+
+        .right {
+            left: 50%;
+        }
+
+        .right::after {
+            left: -10px;
+        }
+
+        .timeline-content {
+            padding: 1.5rem;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--border-color);
+            position: relative;
+            border-radius: 12px;
+            transition: all 0.3s ease;
+        }
+
+        .timeline-content:hover {
+            border-color: var(--primary);
+            box-shadow: 0 4px 20px rgba(59, 130, 246, 0.15);
+            transform: translateY(-2px);
+        }
+
+        .timeline-content h3 {
+            font-family: var(--font-outfit);
+            font-size: 1.15rem;
+            color: #fff;
+            margin-bottom: 0.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .phase-badge {
+            font-size: 0.7rem;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .badge-completed {
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--success);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+
+        .badge-progress {
+            background: rgba(245, 158, 11, 0.2);
+            color: var(--warning);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+        }
+
+        .timeline-content p {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            line-height: 1.5;
+            margin-bottom: 0.8rem;
+        }
+
+        .timeline-details {
+            border-top: 1px solid var(--border-color);
+            padding-top: 0.6rem;
+            margin-top: 0.6rem;
+        }
+
+        .timeline-details ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .timeline-details li {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-bottom: 0.25rem;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .timeline-details li::before {
+            content: "✓";
+            color: var(--success);
+            font-weight: bold;
+        }
+
+        /* Tab 4: UI Wireframes */
+        .wireframes-container {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 2rem;
+        }
+
+        /* Mock Mobile Device - Student App */
+        .mock-device {
+            width: 360px;
+            height: 680px;
+            background: #000;
+            border: 12px solid #22252a;
+            border-radius: 40px;
+            margin: 0 auto;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.6);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .mock-device::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 150px;
+            height: 25px;
+            background: #22252a;
+            border-bottom-left-radius: 15px;
+            border-bottom-right-radius: 15px;
+            z-index: 99;
+        }
+
+        .screen-content {
+            flex: 1;
+            background: #111827;
+            display: flex;
+            flex-direction: column;
+            padding: 1.5rem;
+            padding-top: 2.5rem;
+            overflow-y: auto;
+        }
+
+        /* Wireframe Student Login Screen styling */
+        .wf-login-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .wf-logo {
+            font-size: 3rem;
+            margin-bottom: 0.5rem;
+            animation: bounce 2s infinite;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-8px); }
+        }
+
+        .wf-title {
+            font-family: var(--font-outfit);
+            font-size: 1.8rem;
+            font-weight: 800;
+            color: var(--primary);
+            margin-bottom: 0.2rem;
+        }
+
+        .wf-subtitle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-bottom: 2rem;
+        }
+
+        .wf-input-group {
+            width: 100%;
+            margin-bottom: 1rem;
+        }
+
+        .wf-label {
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 0.4rem;
+            display: block;
+        }
+
+        .wf-input {
+            width: 100%;
+            height: 46px;
+            background: #1f2937;
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 8px;
+            padding: 0 1rem;
+            font-size: 0.85rem;
+            color: #fff;
+            outline: none;
+            transition: all 0.3s;
+        }
+
+        .wf-input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 10px rgba(59,130,246,0.2);
+        }
+
+        .wf-btn {
+            width: 100%;
+            height: 46px;
+            background: var(--primary);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            font-family: var(--font-outfit);
+            font-size: 0.95rem;
+            cursor: pointer;
+            margin-top: 1rem;
+            transition: background 0.2s;
+        }
+
+        .wf-btn:hover {
+            background: #2563eb;
+        }
+
+        /* Mock Web/Large Device - Gate Officer Dashboard */
+        .mock-dashboard-window {
+            background: #0f172a;
+            border: 4px solid #334155;
+            border-radius: 12px;
+            height: 680px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.6);
+        }
+
+        .window-titlebar {
+            background: #1e293b;
+            padding: 0.6rem 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .window-controls {
+            display: flex;
+            gap: 0.4rem;
+        }
+
+        .window-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+        .dot-red { background: #ef4444; }
+        .dot-yellow { background: #f59e0b; }
+        .dot-green { background: #10b981; }
+
+        .window-title {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        .dashboard-body {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 200px 1fr;
+            height: calc(100% - 35px);
+        }
+
+        .dash-sidebar {
+            background: #0f172a;
+            border-right: 1px solid rgba(255,255,255,0.05);
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .sidebar-item {
+            padding: 0.6rem 0.8rem;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .sidebar-item:hover, .sidebar-item.active {
+            background: rgba(255,255,255,0.04);
+            color: #fff;
+        }
+
+        .sidebar-item.active {
+            color: var(--primary);
+            background: rgba(59, 130, 246, 0.08);
+            border-left: 3px solid var(--primary);
+            border-radius: 0 6px 6px 0;
+            padding-left: calc(0.8rem - 3px);
+        }
+
+        .dash-main {
+            padding: 1.5rem;
+            overflow-y: auto;
+            background: #090d16;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .dash-header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .dash-heading h2 {
+            font-family: var(--font-outfit);
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: #fff;
+        }
+
+        .dash-heading p {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .gate-control-card {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 0.8rem 1.2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--danger);
+            animation: pulse 1.5s infinite;
+        }
+
+        .status-dot.active {
+            background: var(--success);
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.6; }
+            50% { opacity: 1; }
+            100% { opacity: 0.6; }
+        }
+
+        .override-buttons {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .override-btn {
+            padding: 0.4rem 0.8rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+        }
+
+        .override-btn.open { background: var(--success); color: #fff; }
+        .override-btn.close { background: var(--danger); color: #fff; }
+
+        .dash-content-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            align-items: start;
+        }
+
+        .feed-container {
+            background: #000;
+            border-radius: 8px;
+            overflow: hidden;
+            position: relative;
+            aspect-ratio: 16/10;
+            border: 1px solid var(--border-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .feed-placeholder-text {
+            color: #4b5563;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-weight: bold;
+            position: absolute;
+            z-index: 1;
+        }
+
+        .camera-overlay-box {
+            position: absolute;
+            border: 2px solid var(--success);
+            box-shadow: 0 0 15px var(--success-glow);
+            width: 60%;
+            height: 35%;
+            top: 35%;
+            left: 20%;
+            display: none;
+            z-index: 2;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 0.4rem;
+        }
+
+        .camera-overlay-box.active {
+            display: flex;
+        }
+
+        .overlay-label {
+            background: var(--success);
+            color: #000;
+            font-size: 0.6rem;
+            font-weight: bold;
+            padding: 0.1rem 0.3rem;
+            align-self: flex-start;
+            border-radius: 2px;
+        }
+
+        /* Dash tables list */
+        .dash-list-card {
+            background: rgba(255,255,255,0.01);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.8rem;
+            max-height: 250px;
+            overflow-y: auto;
+        }
+
+        .dash-list-header {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #fff;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 0.4rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .dash-list-badge {
+            background: var(--primary);
+            font-size: 0.65rem;
+            padding: 0.1rem 0.4rem;
+            border-radius: 10px;
+            color: #fff;
+        }
+
+        .pending-list-item {
+            background: rgba(255,255,255,0.02);
+            border-radius: 6px;
+            padding: 0.6rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid var(--border-color);
+        }
+
+        .pending-info h6 {
+            font-size: 0.8rem;
+            color: #fff;
+            font-weight: 600;
+        }
+
+        .pending-info p {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+        }
+
+        .pending-actions {
+            display: flex;
+            gap: 0.3rem;
+        }
+
+        .log-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.75rem;
+        }
+
+        .log-table th, .log-table td {
+            text-align: left;
+            padding: 0.4rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .log-table th {
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+
+        .status-badge {
+            font-size: 0.65rem;
+            padding: 0.1rem 0.3rem;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+
+        .status-badge.granted {
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--success);
+        }
+
+        .status-badge.denied {
+            background: rgba(239, 68, 68, 0.2);
+            color: var(--danger);
+        }
+
+        /* Tech Comparison Panel */
+        .comparison-card {
+            background: rgba(59, 130, 246, 0.03);
+            border: 1px solid rgba(59, 130, 246, 0.15);
+            padding: 1.5rem;
+            border-radius: 12px;
+            margin-top: 2rem;
+        }
+
+        .comparison-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            margin-top: 1rem;
+        }
+
+        .comparison-col h5 {
+            font-family: var(--font-outfit);
+            color: #fff;
+            margin-bottom: 0.5rem;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .comparison-col ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .comparison-col li {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-bottom: 0.4rem;
+            line-height: 1.4;
+        }
+
+        .comparison-col listrong {
+            color: var(--text-main);
+        }
+
+        /* Footer styling */
+        footer {
+            text-align: center;
+            padding: 2rem 0;
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            border-top: 1px solid var(--border-color);
+            margin-top: 4rem;
+            background: rgba(11, 15, 25, 0.5);
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo-section">
+            <h1>🚪 Intelli<span>Gate</span></h1>
+            <p>Smart University Gate Automation System — Architecture & UX Dashboard</p>
+        </div>
+        <div class="team-badge">
+            <div>Final-Year Engineering Project</div>
+            <span>B.Karthigan • S.Kushalini • M.Sulaksan</span>
+        </div>
+    </header>
+
+    <div class="tabs-container">
+        <button class="tab-btn active" onclick="switchTab(event, 'architecture')">💻 System Architecture</button>
+        <button class="tab-btn" onclick="switchTab(event, 'simulator')">🔄 Workflow Simulator</button>
+        <button class="tab-btn" onclick="switchTab(event, 'phases')">📅 Development Phases</button>
+        <button class="tab-btn" onclick="switchTab(event, 'wireframes')">📱 Interactive UI Wireframes</button>
+    </div>
+
+    <main>
+        <!-- TAB 1: SYSTEM ARCHITECTURE -->
+        <section id="architecture" class="tab-content active">
+            <div class="glass-card">
+                <div class="card-header">
+                    <h2 class="card-title">🔌 Full System Architecture Diagram</h2>
+                    <p class="card-description">Interactive map of the edge scanners, server components, database integrations, and hardware interfaces.</p>
+                </div>
+                
+                <div class="architecture-grid">
+                    <!-- SVG ARCHITECTURE MAP -->
+                    <div class="arch-svg-container">
+                        <svg width="100%" height="520" viewBox="0 0 900 520" xmlns="http://www.w3.org/2000/svg">
+                            <!-- Background Grid Effect -->
+                            <defs>
+                                <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+                                    <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(255,255,255,0.02)" stroke-width="1"/>
+                                </pattern>
+                                <linearGradient id="primary-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" stop-color="#3b82f6" />
+                                    <stop offset="100%" stop-color="#1d4ed8" />
+                                </linearGradient>
+                                <linearGradient id="success-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" stop-color="#10b981" />
+                                    <stop offset="100%" stop-color="#047857" />
+                                </linearGradient>
+                                <linearGradient id="violet-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" stop-color="#8b5cf6" />
+                                    <stop offset="100%" stop-color="#6d28d9" />
+                                </linearGradient>
+                            </defs>
+                            <rect width="100%" height="100%" fill="url(#grid)" />
+
+                            <!-- Connections Paths -->
+                            <!-- Edge Node to API Server -->
+                            <path id="path-edge-server" d="M 200 120 H 450" fill="none" stroke="rgba(59, 130, 246, 0.4)" stroke-width="2" stroke-dasharray="6,6" />
+                            <!-- Web/Mobile Client to API Server -->
+                            <path id="path-client-server" d="M 200 240 H 450" fill="none" stroke="rgba(59, 130, 246, 0.4)" stroke-width="2" stroke-dasharray="6,6" />
+                            <!-- Server to DB -->
+                            <path id="path-server-db" d="M 570 180 Q 640 100 700 100" fill="none" stroke="rgba(16, 185, 129, 0.4)" stroke-width="2" stroke-dasharray="6,6" />
+                            <!-- Server to Firebase Auth/FCM -->
+                            <path id="path-server-firebase" d="M 570 240 Q 640 240 700 240" fill="none" stroke="rgba(245, 158, 11, 0.4)" stroke-width="2" stroke-dasharray="6,6" />
+                            <!-- Server to Gate Hardware -->
+                            <path id="path-server-gate" d="M 510 300 V 400" fill="none" stroke="rgba(139, 92, 246, 0.4)" stroke-width="2" stroke-dasharray="6,6" />
+
+                            <!-- Data flow animated circles -->
+                            <circle r="4" fill="#3b82f6">
+                                <animateMotion dur="4s" repeatCount="indefinite" path="M 200 120 H 450" />
+                            </circle>
+                            <circle r="4" fill="#10b981">
+                                <animateMotion dur="5s" repeatCount="indefinite" path="M 450 180 Q 640 100 700 100" />
+                            </circle>
+                            <circle r="4" fill="#8b5cf6">
+                                <animateMotion dur="3s" repeatCount="indefinite" path="M 510 300 V 400" />
+                            </circle>
+
+                            <!-- Node: Edge Hardware & OpenCV ANPR -->
+                            <g transform="translate(40, 70)" cursor="pointer" onclick="showNodeDetails('edge')">
+                                <rect width="160" height="100" rx="8" fill="#1e293b" stroke="#3b82f6" stroke-width="1.5" />
+                                <text x="80" y="35" fill="#fff" font-size="12" font-family="'Outfit'" font-weight="bold" text-anchor="middle">ANPR / Scanner Node</text>
+                                <text x="80" y="55" fill="#9ca3af" font-size="9" text-anchor="middle">OpenCV Capture & OCR</text>
+                                <text x="80" y="70" fill="#9ca3af" font-size="9" text-anchor="middle">QR / Barcode Scanner</text>
+                                <rect x="10" y="80" width="140" height="12" rx="3" fill="rgba(59, 130, 246, 0.15)" />
+                                <text x="80" y="89" fill="#3b82f6" font-size="8" font-weight="bold" text-anchor="middle">EDGE HARDWARE</text>
+                            </g>
+
+                            <!-- Node: Clients (Mobile App & Dashboard) -->
+                            <g transform="translate(40, 190)" cursor="pointer" onclick="showNodeDetails('clients')">
+                                <rect width="160" height="100" rx="8" fill="#1e293b" stroke="#3b82f6" stroke-width="1.5" />
+                                <text x="80" y="35" fill="#fff" font-size="12" font-family="'Outfit'" font-weight="bold" text-anchor="middle">Mobile Client (Expo)</text>
+                                <text x="80" y="55" fill="#9ca3af" font-size="9" text-anchor="middle">Student Gate Status UI</text>
+                                <text x="80" y="70" fill="#9ca3af" font-size="9" text-anchor="middle">Officer Review & Override</text>
+                                <rect x="10" y="80" width="140" height="12" rx="3" fill="rgba(59, 130, 246, 0.15)" />
+                                <text x="80" y="89" fill="#3b82f6" font-size="8" font-weight="bold" text-anchor="middle">REACT NATIVE & JWT</text>
+                            </g>
+
+                            <!-- Node: API Server (Flask / Node.js) -->
+                            <g transform="translate(450, 130)" cursor="pointer" onclick="showNodeDetails('api')">
+                                <rect width="120" height="170" rx="8" fill="url(#primary-grad)" stroke="#2563eb" stroke-width="2" />
+                                <text x="60" y="35" fill="#fff" font-size="14" font-family="'Outfit'" font-weight="bold" text-anchor="middle">Flask API</text>
+                                <text x="60" y="50" fill="#fff" font-size="14" font-family="'Outfit'" font-weight="bold" text-anchor="middle">Server</text>
+                                
+                                <text x="60" y="85" fill="#bfdbfe" font-size="9" text-anchor="middle">Auth Middleware</text>
+                                <text x="60" y="100" fill="#bfdbfe" font-size="9" text-anchor="middle">Verify Controller</text>
+                                <text x="60" y="115" fill="#bfdbfe" font-size="9" text-anchor="middle">Socket.IO Events</text>
+                                <text x="60" y="130" fill="#bfdbfe" font-size="9" text-anchor="middle">FCM Notification Triggers</text>
+                                
+                                <rect x="10" y="145" width="100" height="15" rx="3" fill="rgba(255,255,255,0.15)" />
+                                <text x="60" y="156" fill="#fff" font-size="8" font-weight="bold" text-anchor="middle">BACKEND CORE</text>
+                            </g>
+
+                            <!-- Node: Database Layer -->
+                            <g transform="translate(700, 50)" cursor="pointer" onclick="showNodeDetails('db')">
+                                <rect width="160" height="100" rx="8" fill="#1e293b" stroke="#10b981" stroke-width="1.5" />
+                                <text x="80" y="30" fill="#fff" font-size="12" font-family="'Outfit'" font-weight="bold" text-anchor="middle">SQL Database</text>
+                                <text x="80" y="48" fill="#9ca3af" font-size="9" text-anchor="middle">Access Logs & Queue</text>
+                                <text x="80" y="62" fill="#9ca3af" font-size="9" text-anchor="middle">Users, Vehicles & IDs</text>
+                                <rect x="10" y="78" width="140" height="12" rx="3" fill="rgba(16, 185, 129, 0.15)" />
+                                <text x="80" y="87" fill="#10b981" font-size="8" font-weight="bold" text-anchor="middle">SQLALCHEMY / POSTGRES</text>
+                            </g>
+
+                            <!-- Node: Firebase Integration -->
+                            <g transform="translate(700, 190)" cursor="pointer" onclick="showNodeDetails('firebase')">
+                                <rect width="160" height="100" rx="8" fill="#1e293b" stroke="#f59e0b" stroke-width="1.5" />
+                                <text x="80" y="35" fill="#fff" font-size="12" font-family="'Outfit'" font-weight="bold" text-anchor="middle">Firebase Cloud Services</text>
+                                <text x="80" y="55" fill="#9ca3af" font-size="9" text-anchor="middle">Firebase Cloud Messaging</text>
+                                <text x="80" y="70" fill="#9ca3af" font-size="9" text-anchor="middle">Mobile Push Alerts</text>
+                                <rect x="10" y="80" width="140" height="12" rx="3" fill="rgba(245, 158, 11, 0.15)" />
+                                <text x="80" y="89" fill="#f59e0b" font-size="8" font-weight="bold" text-anchor="middle">FCM PUSH SYSTEM</text>
+                            </g>
+
+                            <!-- Node: Gate Hardware Control -->
+                            <g transform="translate(430, 400)" cursor="pointer" onclick="showNodeDetails('hardware')">
+                                <rect width="160" height="100" rx="8" fill="#1e293b" stroke="#8b5cf6" stroke-width="1.5" />
+                                <text x="80" y="35" fill="#fff" font-size="12" font-family="'Outfit'" font-weight="bold" text-anchor="middle">ESP32 Gate Controller</text>
+                                <text x="80" y="55" fill="#9ca3af" font-size="9" text-anchor="middle">Serial Commands / HTTP Webhook</text>
+                                <text x="80" y="70" fill="#9ca3af" font-size="9" text-anchor="middle">Gate Servo / Auto-Close</text>
+                                <rect x="10" y="80" width="140" height="12" rx="3" fill="rgba(139, 92, 246, 0.15)" />
+                                <text x="80" y="89" fill="#8b5cf6" font-size="8" font-weight="bold" text-anchor="middle">PHYSICAL CONTROL LAYER</text>
+                            </g>
+                        </svg>
+                    </div>
+
+                    <!-- NODE DETAIL SIDEBAR -->
+                    <div class="node-info-panel">
+                        <div class="node-detail-card" id="detail-card">
+                            <h4 id="detail-title">💡 System Architecture</h4>
+                            <p id="detail-desc">Click any component box in the diagram to inspect its role, internal dependencies, and tech stack details.</p>
+                        </div>
+
+                        <div class="node-detail-card">
+                            <h4>🔑 JWT Authentication Loop</h4>
+                            <p>All client routes utilize <strong>stateless JSON Web Tokens</strong>. The credentials flow initiates on user login, signing the token with role metadata (Student or Gate Officer), which is verified by API gateway middleware for subsequent verification or manual gate overrides.</p>
+                        </div>
+
+                        <div class="node-detail-card">
+                            <h4>📡 WebSockets & FCM</h4>
+                            <p><strong>Flask-SocketIO</strong> delivers real-time notifications to the Officer's dashboard when vehicles trigger verification, while <strong>Firebase Cloud Messaging (FCM)</strong> issues high-priority push notifications to standby mobile clients when the app is backgrounded.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Core Architectural Trade-offs & Choices -->
+                <div class="comparison-card">
+                    <h4 style="font-family: var(--font-outfit); color:#fff; font-size:1.1rem; display:flex; align-items:center; gap:0.5rem; margin-bottom:0.8rem;">
+                        ⚙️ Architectural Adaptation: Proposed vs. Implemented Stack
+                    </h4>
+                    <p style="font-size:0.85rem; color: var(--text-muted); line-height: 1.5; margin-bottom:1rem;">
+                        To support the intensive computational loads of OpenCV and OCR models, the development team adapted the initial web stack. Python was chosen as the core language for backend processes to facilitate native access to computer vision libraries, and the database was structured around a high-performance relational framework.
+                    </p>
+                    <div class="comparison-grid">
+                        <div class="comparison-col">
+                            <h5 style="color:var(--warning);"><span style="font-size:0.9rem;">📋</span> Theoretical / Initial Goals</h5>
+                            <ul>
+                                <li><strong>Frontend UI:</strong> React / React Native client structure</li>
+                                <li><strong>Backend Server:</strong> Node.js + Express API setup</li>
+                                <li><strong>Authentication:</strong> Client-side Firebase Auth integration</li>
+                                <li><strong>Database Layer:</strong> Firestore (NoSQL Document Collections)</li>
+                            </ul>
+                        </div>
+                        <div class="comparison-col">
+                            <h5 style="color:var(--success);"><span style="font-size:0.9rem;">🚀</span> Codebase Implementation</h5>
+                            <ul>
+                                <li><strong>Frontend UI:</strong> Expo Mobile App (React Native + SecureStore)</li>
+                                <li><strong>Backend Server:</strong> Python Flask + Flask-SocketIO (eventlet mode)</li>
+                                <li><strong>Authentication:</strong> API-level JWT (Bearer Tokens) with claims</li>
+                                <li><strong>Database Layer:</strong> SQLAlchemy relational models (Postgres / SQLite)</li>
+                                <li><strong>Edge Computing:</strong> OpenCV license detection + easyOCR pipeline</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 2: LIVE SIMULATOR -->
+        <section id="simulator" class="tab-content">
+            <div class="glass-card">
+                <div class="card-header">
+                    <h2 class="card-title">🔄 Live Workflow Simulator & Data Flow</h2>
+                    <p class="card-description">Simulate a gate entry request. Follow how data propagates from the scanner to the backend verification engine, Firestore/SQL checks, socket triggers, and the ESP32 physical gate command.</p>
+                </div>
+
+                <div class="simulator-layout">
+                    <!-- CONTROLS & TERMINAL LOGS -->
+                    <div class="controls-card">
+                        <h4 style="font-family: var(--font-outfit); color:#fff; font-size:1.1rem; margin-bottom:0.5rem;">Select Entry Event Trigger</h4>
+                        <div class="simulation-actions">
+                            <button class="sim-btn authorized-vehicle" onclick="triggerSimulation('plate', 'ABC1234', true)">
+                                🚗 Detect Registered Car
+                                <span>Plate: ABC1234</span>
+                            </button>
+                            <button class="sim-btn authorized-user" onclick="triggerSimulation('barcode', '23-ENG-070', true)">
+                                💳 Scan Registered Card
+                                <span>Student ID: 23-ENG-070</span>
+                            </button>
+                            <button class="sim-btn unauthorized-vehicle" onclick="triggerSimulation('plate', 'XYZ9876', false)">
+                                ⚠️ Detect Unknown Car
+                                <span>Plate: XYZ9876</span>
+                            </button>
+                            <button class="sim-btn unauthorized-user" onclick="triggerSimulation('barcode', '23-ENG-999', false)">
+                                🚫 Scan Unknown Card
+                                <span>ID Number: 23-ENG-999</span>
+                            </button>
+                        </div>
+
+                        <h4 style="font-family: var(--font-outfit); color:#fff; font-size:1.1rem; margin-bottom:0.5rem; margin-top:1rem;">Backend Server Logs (Real-time Socket.IO events)</h4>
+                        <div class="terminal-container" id="terminal-logs">
+                            <div class="terminal-line info">[SYSTEM] Click any simulation trigger above to start gate flow log...</div>
+                        </div>
+                    </div>
+
+                    <!-- PREVIEW PANES (GATE ANIMATION & PHONE MOCKUP) -->
+                    <div class="preview-pane">
+                        <!-- GATE SVG ANIMATION -->
+                        <div class="gate-visualization">
+                            <div class="gate-title">Physical Barrier State</div>
+                            <div class="gate-hardware">
+                                <svg width="100%" height="100%" viewBox="0 0 260 140">
+                                    <!-- Ground -->
+                                    <line x1="0" y1="120" x2="260" y2="120" stroke="#4b5563" stroke-width="4" />
+                                    <!-- Pillar -->
+                                    <rect class="gate-pillar" x="15" y="60" width="30" height="60" rx="4" />
+                                    <circle class="gate-light" id="gate-indicator" cx="30" cy="75" r="5" />
+                                    <!-- Barrier Arm -->
+                                    <rect class="gate-arm" id="gate-arm-rect" x="20" y="95" width="200" height="10" rx="3" />
+                                    <!-- Hinge point -->
+                                    <circle cx="30" cy="100" r="8" fill="#1f2937" />
+                                </svg>
+                            </div>
+                            <div id="gate-status-text" style="font-weight:bold; font-size:1rem; color:var(--danger); margin-top:0.5rem;">GATE CLOSED</div>
+                        </div>
+
+                        <!-- PHONE MOCKUP -->
+                        <div class="phone-mockup-panel">
+                            <div class="sim-phone">
+                                <div class="phone-header">
+                                    <span>IntelliGate App</span>
+                                    <span>10:42 AM</span>
+                                </div>
+                                <div style="min-height: 70px; display:flex; align-items:center; justify-content:center;">
+                                    <div class="phone-notification" id="phone-alert">
+                                        <div class="notification-icon">⚠️</div>
+                                        <div class="notification-body">
+                                            <h5>Unknown Vehicle Detected</h5>
+                                            <p id="alert-message">Plate XYZ9876 is requesting gate access.</p>
+                                            <div class="notification-actions">
+                                                <button class="phone-btn approve" onclick="respondFromPhone(true)">Approve & Open</button>
+                                                <button class="phone-btn deny" onclick="respondFromPhone(false)">Reject</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div id="phone-idle-text" style="font-size:0.75rem; color:#4b5563;">Mobile Push Queue Empty</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 3: DEVELOPMENT PHASES -->
+        <section id="phases" class="tab-content">
+            <div class="glass-card">
+                <div class="card-header" style="text-align: center;">
+                    <h2 class="card-title" style="justify-content: center;">📅 6 Development Phases Timeline</h2>
+                    <p class="card-description">Systematic workflow mapping milestones from foundational APIs to final validation testing.</p>
+                </div>
+
+                <div class="timeline">
+                    <!-- Phase 1 -->
+                    <div class="timeline-item left">
+                        <div class="timeline-content">
+                            <h3>Phase 1: Backend Setup & Dummy APIs <span class="phase-badge badge-completed">Completed</span></h3>
+                            <p>Initial creation of backend structures, Flask application skeleton, CORS policies, environment variables configuration, and health check routes.</p>
+                            <div class="timeline-details">
+                                <ul>
+                                    <li>Setup of Flask application factory structure inside `app/__init__.py`.</li>
+                                    <li>Configuration of dummy responses in `/api/verify` for testing mock hardware signals.</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Phase 2 -->
+                    <div class="timeline-item right">
+                        <div class="timeline-content">
+                            <h3>Phase 2: Auth Integration <span class="phase-badge badge-completed">Completed</span></h3>
+                            <p>Development of token-based authentication mechanism. Creating security policies, encrypting credentials, and protecting endpoints.</p>
+                            <div class="timeline-details">
+                                <ul>
+                                    <li>Integration of `flask-jwt-extended` for secure verification signatures.</li>
+                                    <li>Protected API endpoints requiring Bearer tokens in headers.</li>
+                                    <li>Client-side SecureStore setup to persist sessions.</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Phase 3 -->
+                    <div class="timeline-item left">
+                        <div class="timeline-content">
+                            <h3>Phase 3: Database Design <span class="phase-badge badge-completed">Completed</span></h3>
+                            <p>Definition of relational SQL tables. Writing DB schemas representing access history logs, registered vehicles, student accounts, and reviewer queues.</p>
+                            <div class="timeline-details">
+                                <ul>
+                                    <li>Design of User, Vehicle, StudentID, AccessLog, and Pending tables.</li>
+                                    <li>Configured Flask-SQLAlchemy migrations and database seed files.</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Phase 4 -->
+                    <div class="timeline-item right">
+                        <div class="timeline-content">
+                            <h3>Phase 4: Gate Access Logic <span class="phase-badge badge-completed">Completed</span></h3>
+                            <p>Core logic verification rules. Creating pathways to identify scanned plates or barcodes against database tables, handling grant/denial routing.</p>
+                            <div class="timeline-details">
+                                <ul>
+                                    <li>Check of plate/barcode records via relational entity mappings.</li>
+                                    <li>Creation of PendingApprovals items for unknown vehicles.</li>
+                                    <li>Real-time websocket events trigger using Socket.IO server.</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Phase 5 -->
+                    <div class="timeline-item left">
+                        <div class="timeline-content">
+                            <h3>Phase 5: Logs & Notifications <span class="phase-badge badge-completed">Completed</span></h3>
+                            <p>Building the notification pipeline. Setting up FCM service integrations for mobile notification triggers and database activity log recording.</p>
+                            <div class="timeline-details">
+                                <ul>
+                                    <li>FCM module built to parse service account JSON keys.</li>
+                                    <li>Trigger of high-priority push events for unrecognized vehicles.</li>
+                                    <li>Persistent logging of all entries and exists with direction metadata.</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Phase 6 -->
+                    <div class="timeline-item right">
+                        <div class="timeline-content">
+                            <h3>Phase 6: Integration & Hardware Testing <span class="phase-badge badge-progress">Testing</span></h3>
+                            <p>Connecting software components with physical hardware. Hooking ESP32 over serial ports or HTTP requests, and calibrating ANPR cameras.</p>
+                            <div class="timeline-details">
+                                <ul>
+                                    <li>ESP32 communication via serial commands and HTTP webhook routes.</li>
+                                    <li>Wiring of gate servo control and status indicator lights.</li>
+                                    <li>Real-world field validation of CV license capture accuracy.</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 4: UI WIREFRAMES -->
+        <section id="wireframes" class="tab-content">
+            <div class="glass-card">
+                <div class="card-header">
+                    <h2 class="card-title">📱 Interactive UI Wireframes</h2>
+                    <p class="card-description">Interactive mockups representing the Student/Officer Login Screen (Mobile Client) and the Gate Officer Web/Mobile Control Dashboard.</p>
+                </div>
+
+                <div class="wireframes-container">
+                    <!-- WIREFRAME 1: MOBILE CLIENT LOGIN -->
+                    <div>
+                        <h4 style="font-family:var(--font-outfit); color:#fff; font-size:1.1rem; text-align:center; margin-bottom:1rem;">Student & Staff Login Wireframe</h4>
+                        <div class="mock-device">
+                            <div class="screen-content">
+                                <div class="wf-login-container">
+                                    <div class="wf-logo">🚪</div>
+                                    <div class="wf-title">IntelliGate</div>
+                                    <div class="wf-subtitle">University Security System</div>
+
+                                    <div class="wf-input-group">
+                                        <label class="wf-label">Email address</label>
+                                        <input type="email" class="wf-input" placeholder="e.g. karthigan@university.lk" id="wf-email" value="kushalini@university.lk">
+                                    </div>
+
+                                    <div class="wf-input-group" style="margin-bottom: 1.5rem;">
+                                        <label class="wf-label">Password</label>
+                                        <input type="password" class="wf-input" value="••••••••••••" disabled>
+                                    </div>
+
+                                    <button class="wf-btn" onclick="alert('Wireframe Interaction: Login Successful! Token cached in SecureStore.')">Sign In</button>
+                                    <div style="font-size:0.7rem; color:var(--text-muted); margin-top:1.5rem; text-align:center;">
+                                        Protected by REST API JWT auth
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- WIREFRAME 2: OFFICER CONTROL PANEL -->
+                    <div>
+                        <h4 style="font-family:var(--font-outfit); color:#fff; font-size:1.1rem; text-align:center; margin-bottom:1rem;">Gate Officer Control Dashboard</h4>
+                        <div class="mock-dashboard-window">
+                            <div class="window-titlebar">
+                                <div class="window-controls">
+                                    <div class="window-dot dot-red"></div>
+                                    <div class="window-dot dot-yellow"></div>
+                                    <div class="window-dot dot-green"></div>
+                                </div>
+                                <div class="window-title">IntelliGate Management Console v1.0</div>
+                                <div style="width: 42px;"></div>
+                            </div>
+
+                            <div class="dashboard-body">
+                                <!-- Sidebar -->
+                                <div class="dash-sidebar">
+                                    <div class="sidebar-item active">📺 Live Feed</div>
+                                    <div class="sidebar-item">📑 Access Logs</div>
+                                    <div class="sidebar-item">👥 Registrations</div>
+                                    <div class="sidebar-item" style="margin-top:auto; color:var(--danger);">🚪 Deactivate Console</div>
+                                </div>
+
+                                <!-- Dashboard Main Content -->
+                                <div class="dash-main">
+                                    <!-- Header Control Row -->
+                                    <div class="dash-header-row">
+                                        <div class="dash-heading">
+                                            <h2>Gate 01 Monitoring</h2>
+                                            <p>Main University Entrance Portal</p>
+                                        </div>
+                                        <div class="status-indicator">
+                                            <div class="status-dot" id="wf-indicator"></div>
+                                            <span id="wf-status-txt">GATE CLOSED</span>
+                                        </div>
+                                    </div>
+
+                                    <!-- Override Gate Bar -->
+                                    <div class="gate-control-card">
+                                        <div style="font-size:0.8rem; font-weight:600;">Manual Override Command:</div>
+                                        <div class="override-buttons">
+                                            <button class="override-btn open" onclick="manualWfGate(true)">OPEN GATE</button>
+                                            <button class="override-btn close" onclick="manualWfGate(false)">CLOSE GATE</button>
+                                        </div>
+                                    </div>
+
+                                    <!-- Grid columns: camera feed & review queues -->
+                                    <div class="dash-content-grid">
+                                        <!-- Simulated Live Feed -->
+                                        <div>
+                                            <h5 style="font-size:0.8rem; color:#fff; margin-bottom:0.5rem;">📷 OCR Camera Stream</h5>
+                                            <div class="feed-container">
+                                                <div class="feed-placeholder-text" id="wf-feed-placeholder">LIVE CAPTURE FEED</div>
+                                                <div class="camera-overlay-box" id="wf-ocr-box">
+                                                    <div class="overlay-label" id="wf-ocr-label">OCR CALIBRATING...</div>
+                                                    <div style="border-top:1px dashed var(--success); width:100%;"></div>
+                                                </div>
+                                                <div id="wf-feed-plate" style="position:absolute; bottom:10px; left:10px; background:rgba(0,0,0,0.8); font-size:0.75rem; padding:0.2rem 0.5rem; border-radius:4px; font-weight:bold; color:var(--success); display:none;">
+                                                    OCR: -
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <!-- Pending Approvals & Logs -->
+                                        <div style="display:flex; flex-direction:column; gap:1rem;">
+                                            <!-- Approvals queue -->
+                                            <div class="dash-list-card">
+                                                <div class="dash-list-header">
+                                                    <span>Review Requests Queue</span>
+                                                    <span class="dash-list-badge" id="wf-pending-badge">0</span>
+                                                </div>
+                                                <div id="wf-pending-items" style="display:flex; flex-direction:column; gap:0.5rem;">
+                                                    <div style="font-size:0.7rem; color:var(--text-muted); text-align:center; padding:1rem 0;" id="wf-pending-empty">
+                                                        No pending approvals. Simulated triggers will queue items here.
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <!-- Tiny access logs -->
+                                            <div class="dash-list-card">
+                                                <div class="dash-list-header">
+                                                    <span>Recent Activities Log</span>
+                                                </div>
+                                                <table class="log-table">
+                                                    <thead>
+                                                        <tr>
+                                                            <th>Time</th>
+                                                            <th>Identifier</th>
+                                                            <th>Type</th>
+                                                            <th>Status</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody id="wf-logs-tbody">
+                                                        <tr>
+                                                            <td style="color:var(--text-muted)">10:30:15</td>
+                                                            <td>ABC1234</td>
+                                                            <td>Plate</td>
+                                                            <td><span class="status-badge granted">Granted</span></td>
+                                                        </tr>
+                                                        <tr>
+                                                            <td style="color:var(--text-muted)">10:28:40</td>
+                                                            <td>23-ENG-070</td>
+                                                            <td>Barcode</td>
+                                                            <td><span class="status-badge granted">Granted</span></td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        <p>© 2026 IntelliGate Project Team. Built for Smart University Gate Automation System presentation.</p>
+    </footer>
+
+    <!-- INTERACTIVE SCRIPTS -->
+    <script>
+        // Tab switching
+        function switchTab(evt, tabId) {
+            const contents = document.querySelectorAll('.tab-content');
+            contents.forEach(content => content.classList.remove('active'));
+
+            const buttons = document.querySelectorAll('.tab-btn');
+            buttons.forEach(btn => btn.classList.remove('active'));
+
+            document.getElementById(tabId).classList.add('active');
+            evt.currentTarget.classList.add('active');
+        }
+
+        // Show SVG Node Details
+        const nodeDetails = {
+            edge: {
+                title: "ANPR / Scanner Node (Edge Module)",
+                desc: "Edge-based OCR computer vision processor. Uses python OpenCV camera streams and OCR models to parse license numbers. Integrates student ID scanner triggers and barcode readings, emitting JSON structures directly to the main API for access confirmation."
+            },
+            clients: {
+                title: "React Native Mobile & Web Clients",
+                desc: "The interface app built with Expo. Mobile security officers receive live web-socket alerts, manage gate controls, view entry records, and review pending approval events. Includes student status dashboards and stores authorization JWT tokens."
+            },
+            api: {
+                title: "Flask API Gateway Core Server",
+                desc: "Handles HTTP routing, security authentications, validation triggers, database management, and FCM push notifications. Incorporates Socket.IO services for live dashboard alerts."
+            },
+            db: {
+                title: "Postgres Database Relational Tables",
+                desc: "Powered by SQLAlchemy schemas. Maintains persistence for user access history, logs, registration files, and authorization queues. Logs record directional indicators (Entry/Exit) and foreign user relations."
+            },
+            firebase: {
+                title: "Firebase Cloud Messaging (FCM)",
+                desc: "Cloud service used to broadcast urgent security signals to officer mobile phones. Instantly triggers push notifications for unrecognized license plates even if application instances are backgrounded."
+            },
+            hardware: {
+                title: "ESP32 Gate Controller & Hardware",
+                desc: "The physical microchip control module. Listens for serial signals or HTTP hooks triggered by verify API routes. Operates servo barrier arms, configures indicator lights, and schedules auto-close actions."
+            }
+        };
+
+        function showNodeDetails(nodeId) {
+            const data = nodeDetails[nodeId];
+            if (!data) return;
+            
+            const card = document.getElementById('detail-card');
+            const titleEl = document.getElementById('detail-title');
+            const descEl = document.getElementById('detail-desc');
+            
+            titleEl.innerHTML = `⚙️ ${data.title}`;
+            descEl.innerHTML = data.desc;
+            
+            // Add pulse highlight animation effect to info card
+            card.style.borderColor = 'var(--primary)';
+            card.style.boxShadow = '0 0 15px var(--primary-glow)';
+            setTimeout(() => {
+                card.style.borderColor = 'var(--border-color)';
+                card.style.boxShadow = 'none';
+            }, 800);
+        }
+
+        // Simulator Engine
+        let activeSimulation = null;
+        let autoCloseTimer = null;
+
+        function logToTerminal(message, type = 'info') {
+            const terminal = document.getElementById('terminal-logs');
+            const timestamp = new Date().toLocaleTimeString();
+            const logLine = document.createElement('div');
+            logLine.className = `terminal-line ${type}`;
+            logLine.innerHTML = `<span class="terminal-line timestamp">[${timestamp}]</span> ${message}`;
+            terminal.appendChild(logLine);
+            terminal.scrollTop = terminal.scrollHeight;
+        }
+
+        function triggerSimulation(type, val, authorized) {
+            // Cancel active notification
+            document.getElementById('phone-alert').classList.remove('active');
+            document.getElementById('phone-idle-text').style.display = 'block';
+            
+            // Reset gate status if open
+            closeGateSimulation();
+            
+            activeSimulation = { type, value: val, authorized };
+            
+            logToTerminal(`[SCANNER] Read ID value: "${val}" (Type: ${type.toUpperCase()})`, 'info');
+            logToTerminal(`[API CLIENT] Sending HTTP POST to "/api/verify" with body: {type: "${type}", value: "${val}"}`, 'info');
+            
+            // Trigger UI Dashboard Mock ANPR Frame box
+            const ocrBox = document.getElementById('wf-ocr-box');
+            const ocrLabel = document.getElementById('wf-ocr-label');
+            const feedPlaceholder = document.getElementById('wf-feed-placeholder');
+            const feedPlate = document.getElementById('wf-feed-plate');
+            
+            if (type === 'plate') {
+                feedPlaceholder.innerHTML = "🚗 VEHICLE DETECTED";
+                ocrBox.className = "camera-overlay-box active";
+                ocrLabel.innerHTML = `OCR PROCESSING: "${val}"`;
+                feedPlate.style.display = "block";
+                feedPlate.innerHTML = `Plate: ${val}`;
+            } else {
+                feedPlaceholder.innerHTML = "💳 BARCODE SCANNED";
+                ocrBox.className = "camera-overlay-box";
+                feedPlate.style.display = "block";
+                feedPlate.innerHTML = `Card ID: ${val}`;
+            }
+
+            setTimeout(() => {
+                logToTerminal(`[DB ENGINE] Querying database tables for active ${type} matching "${val}"`, 'info');
+                
+                if (authorized) {
+                    logToTerminal(`[DB ENGINE] Match found! Owner: ${val === 'ABC1234' ? 'Karthi' : 'Kushalini'}. Status: ACTIVE.`, 'success');
+                    logToTerminal(`[API SERVER] Access GRANTED. Writing AccessLog entry.`, 'success');
+                    
+                    // Trigger gate hardware signal
+                    logToTerminal(`[GATE SERVICE] ESP32 Mode is STUB. Emitting "OPEN" serial command.`, 'info');
+                    openGateSimulation('auto_verify');
+                    
+                    addWfLog(val, type, 'Granted');
+                } else {
+                    logToTerminal(`[DB ENGINE] No match found. Access DENIED.`, 'error');
+                    logToTerminal(`[API SERVER] Added entry to PendingApproval queue.`, 'warning');
+                    
+                    // Socket and FCM triggers
+                    logToTerminal(`[SOCKET.IO] Emitting event "unknown_vehicle" to dashboard listeners`, 'warning');
+                    logToTerminal(`[FCM SERVICE] Dispatching high-priority push token payload to mobile apps`, 'warning');
+                    
+                    // Trigger phone notification mockup
+                    document.getElementById('phone-idle-text').style.display = 'none';
+                    const alertEl = document.getElementById('phone-alert');
+                    document.getElementById('alert-message').innerHTML = `${type === 'plate' ? 'Vehicle plate' : 'ID card'} "${val}" is requesting manual override verification.`;
+                    alertEl.classList.add('active');
+                    
+                    // Add item to Dashboard wireframe list
+                    addWfPendingItem(val, type);
+                    addWfLog(val, type, 'Denied');
+                }
+            }, 1200);
+        }
+
+        // Gate Control Animations
+        function openGateSimulation(triggerSource) {
+            const gateIndicator = document.getElementById('gate-indicator');
+            const gateArm = document.getElementById('gate-arm-rect');
+            const statusText = document.getElementById('gate-status-text');
+            const wfIndicator = document.getElementById('wf-indicator');
+            const wfStatusTxt = document.getElementById('wf-status-txt');
+            
+            gateIndicator.className = "gate-light open";
+            gateArm.className = "gate-arm open";
+            statusText.innerHTML = "GATE OPEN";
+            statusText.style.color = "var(--success)";
+            
+            wfIndicator.className = "status-dot active";
+            wfStatusTxt.innerHTML = "GATE OPEN";
+            wfStatusTxt.style.color = "var(--success)";
+            
+            logToTerminal(`[HARDWARE] ESP32 received OPEN command. Gate servo active.`, 'success');
+            logToTerminal(`[SOCKET.IO] Emitting event "gate_status" -> { status: "open", triggered_by: "${triggerSource}" }`, 'info');
+            
+            // Auto close scheduling
+            clearTimeout(autoCloseTimer);
+            autoCloseTimer = setTimeout(() => {
+                closeGateSimulation();
+            }, 6000);
+        }
+
+        function closeGateSimulation() {
+            const gateIndicator = document.getElementById('gate-indicator');
+            const gateArm = document.getElementById('gate-arm-rect');
+            const statusText = document.getElementById('gate-status-text');
+            const wfIndicator = document.getElementById('wf-indicator');
+            const wfStatusTxt = document.getElementById('wf-status-txt');
+            
+            if (gateArm.className.includes("open")) {
+                gateIndicator.className = "gate-light";
+                gateArm.className = "gate-arm";
+                statusText.innerHTML = "GATE CLOSED";
+                statusText.style.color = "var(--danger)";
+                
+                wfIndicator.className = "status-dot";
+                wfStatusTxt.innerHTML = "GATE CLOSED";
+                wfStatusTxt.style.color = "var(--danger)";
+                
+                logToTerminal(`[HARDWARE] Gate closed (auto-timer or override triggered).`, 'info');
+                logToTerminal(`[SOCKET.IO] Emitting event "gate_status" -> { status: "closed" }`, 'info');
+            }
+        }
+
+        // Manual controls on Officer Dashboard
+        function manualWfGate(open) {
+            if (open) {
+                logToTerminal(`[DASHBOARD UI] Manual OVERRIDE clicked -> OPEN`, 'warning');
+                openGateSimulation('manual_dashboard');
+            } else {
+                logToTerminal(`[DASHBOARD UI] Manual OVERRIDE clicked -> CLOSE`, 'warning');
+                closeGateSimulation();
+            }
+        }
+
+        // Respond from Smartphone notification
+        function respondFromPhone(approved) {
+            document.getElementById('phone-alert').classList.remove('active');
+            document.getElementById('phone-idle-text').style.display = 'block';
+            
+            if (activeSimulation) {
+                const val = activeSimulation.value;
+                const type = activeSimulation.type;
+                
+                // Clear matching approval queue items on dashboard
+                removeWfPendingItem(val);
+                
+                if (approved) {
+                    logToTerminal(`[FCM CALLBACK] Phone response: APPROVED.`, 'success');
+                    logToTerminal(`[API SERVER] Registering temporary profile for visitor "${val}".`, 'success');
+                    openGateSimulation('mobile_fcm_approve');
+                    addWfLog(val, type, 'Granted');
+                } else {
+                    logToTerminal(`[FCM CALLBACK] Phone response: REJECTED.`, 'error');
+                    logToTerminal(`[API SERVER] Request rejected. Gate remains closed.`, 'error');
+                }
+            }
+        }
+
+        // Add pending item to mock dashboard
+        function addWfPendingItem(val, type) {
+            // Remove empty placeholder
+            const placeholder = document.getElementById('wf-pending-empty');
+            if (placeholder) placeholder.style.display = 'none';
+            
+            const badge = document.getElementById('wf-pending-badge');
+            badge.innerHTML = parseInt(badge.innerHTML) + 1;
+            
+            const container = document.getElementById('wf-pending-items');
+            
+            const item = document.createElement('div');
+            item.className = "pending-list-item";
+            item.id = `pending-item-${val}`;
+            item.innerHTML = `
+                <div class="pending-info">
+                    <h6>${val}</h6>
+                    <p>Unregistered ${type.toUpperCase()}</p>
+                </div>
+                <div class="pending-actions">
+                    <button class="phone-btn approve" onclick="approveFromDash('${val}', '${type}')">Approve</button>
+                    <button class="phone-btn deny" onclick="rejectFromDash('${val}')">Deny</button>
+                </div>
+            `;
+            container.appendChild(item);
+        }
+
+        function removeWfPendingItem(val) {
+            const item = document.getElementById(`pending-item-${val}`);
+            if (item) {
+                item.remove();
+                const badge = document.getElementById('wf-pending-badge');
+                badge.innerHTML = Math.max(0, parseInt(badge.innerHTML) - 1);
+                
+                if (parseInt(badge.innerHTML) === 0) {
+                    const placeholder = document.getElementById('wf-pending-empty');
+                    if (placeholder) placeholder.style.display = 'block';
+                }
+            }
+        }
+
+        function approveFromDash(val, type) {
+            logToTerminal(`[DASHBOARD UI] Officer approved pending request for: "${val}"`, 'success');
+            removeWfPendingItem(val);
+            openGateSimulation('dashboard_approve');
+            addWfLog(val, type, 'Granted');
+            
+            // Hide notification alert if still open
+            document.getElementById('phone-alert').classList.remove('active');
+            document.getElementById('phone-idle-text').style.display = 'block';
+        }
+
+        function rejectFromDash(val) {
+            logToTerminal(`[DASHBOARD UI] Officer REJECTED pending request for: "${val}"`, 'error');
+            removeWfPendingItem(val);
+            
+            document.getElementById('phone-alert').classList.remove('active');
+            document.getElementById('phone-idle-text').style.display = 'block';
+        }
+
+        // Add access activity log to mock table
+        function addWfLog(val, type, status) {
+            const tbody = document.getElementById('wf-logs-tbody');
+            const time = new Date().toLocaleTimeString();
+            
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td style="color:var(--text-muted)">${time}</td>
+                <td><strong>${val}</strong></td>
+                <td>${type.charAt(0).toUpperCase() + type.slice(1)}</td>
+                <td><span class="status-badge ${status.toLowerCase()}">${status}</span></td>
+            `;
+            
+            // Insert at the beginning of the table
+            tbody.insertBefore(tr, tbody.firstChild);
+            
+            // Cap table lines at 5 rows for visibility
+            if (tbody.children.length > 5) {
+                tbody.removeChild(tbody.lastChild);
+            }
+        }
+    </script>
+</body>
+</html>
