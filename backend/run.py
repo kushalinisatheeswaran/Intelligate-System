@@ -19,6 +19,6 @@ if __name__ == "__main__":
     socketio.run(
         app,
         host  = "0.0.0.0",   # accessible from phone on same WiFi
-        port  = 5000,
+        port  = 5050,        # Changed from 5000 to bypass macOS Control Center
         debug = True
     )

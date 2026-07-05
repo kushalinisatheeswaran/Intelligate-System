@@ -9,3 +9,4 @@ numberplate/unregistered.jpg
 
 firebase_service_account.json
 google-services.json
+backend/test_db_match.py
