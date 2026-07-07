@@ -5,10 +5,14 @@ from app.models.access_log import AccessLog
 from sqlalchemy import func
 from datetime import datetime, date
 from app.database import db
+from app.models.vehicle import Vehicle
+from app.models.pending import PendingApproval
+from app.services.socket_service import socketio  # or wherever your socketio instance is imported from
+
 
 logs_bp = Blueprint("logs", __name__)
 
-@logs_bp.route("/logs", methods=["GET"])
+@logs_bp.route("/logs", methods=["GET","POST"])
 @jwt_required()
 @guard_or_admin_required
 def get_logs():
@@ -75,3 +79,76 @@ def db_hourly_stats(target_date):
         func.date(AccessLog.timestamp) == target_date
     ).group_by("hour").order_by("hour").all()
     return [{"hour": f"{int(r.hour):02d}:00", "count": r.count} for r in results]
+
+@logs_bp.route("/logs/detect", methods=["POST"])
+# Note: Do not add @jwt_required() here so your teammate's camera scripts can access it easily without needing to manage authentication tokens.
+def handle_camera_detection():
+    pending_entry = None
+    data = request.json
+    if not data:
+        return jsonify({"error": "Missing payload"}), 400
+
+    identifier = data.get("identifier")
+    id_type = data.get("id_type", "plate")
+    direction = data.get("direction", "entry")
+
+    if not identifier:
+        return jsonify({"error": "Missing identifier"}), 400
+
+    # 1. Query your single PostgreSQL database to check if the vehicle is active
+    vehicle = Vehicle.query.filter_by(plate_number=identifier).first()
+
+    if vehicle and vehicle.is_active:
+        # It's a registered, active vehicle -> GRANT ACCESS
+        status = "granted"
+        open_gate = True
+        user_id = vehicle.user_id
+    else:
+        # It's an unknown vehicle -> DENY & SEND TO PENDING QUEUE
+        status = "denied"
+        open_gate = False
+        user_id = None
+
+        # Add a record to your temporary PendingApproval queue
+        pending_entry = PendingApproval(
+            identifier=identifier,
+            id_type=id_type,
+            status="pending"
+        )
+        db.session.add(pending_entry)
+
+    # 2. Log every single try permanently into your AccessLog table
+    new_log = AccessLog(
+        user_id=user_id,
+        identifier=identifier,
+        id_type=id_type,
+        direction=direction,
+        status=status,
+        timestamp=datetime.utcnow()
+    )
+    db.session.add(new_log)
+    db.session.commit()
+
+    # 3. Broadcast real-time alerts across your network to update the mobile app screens instantly
+    if status == "granted":
+        socketio.emit("vehicle_detected", {
+            "identifier": identifier,
+            "id_type": id_type,
+            "direction": direction,
+            "status": status,
+            "timestamp": new_log.timestamp.strftime("%Y-%m-%d %H:%M:%S")
+        }, to="guards")
+        socketio.emit("gate_status", {"status": "open", "triggered_by": "system"}, to="guards")
+    else:
+        socketio.emit("unknown_vehicle", {
+            "pending_id": pending_entry.id,
+            "identifier": identifier,
+            "id_type": id_type,
+            "timestamp": pending_entry.created_at.strftime("%Y-%m-%d %H:%M:%S")
+        }, to="guards")
+
+    return jsonify({
+        "status": status,
+        "open_gate": open_gate,
+        "message": f"Detection successfully processed as {status}"
+    }), 201

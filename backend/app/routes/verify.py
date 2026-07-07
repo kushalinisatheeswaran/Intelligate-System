@@ -2,7 +2,7 @@ from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required
 from datetime import datetime
 from app.database import db
-from app.models.vehicle    import Vehicle
+from app.models.vehicle     import Vehicle
 from app.models.student_id import StudentID
 from app.models.access_log import AccessLog
 from app.models.pending    import PendingApproval
@@ -57,6 +57,33 @@ def verify():
         if student:
             authorized = True
             user = student.user
+
+    # --- Anti-Passback check for authorized credentials ---
+    if authorized:
+        last_log = AccessLog.query.filter_by(identifier=value, status="granted")\
+                                  .order_by(AccessLog.timestamp.desc())\
+                                  .first()
+        
+        if direction == "entry" and last_log and last_log.direction == "entry":
+            timestamp_str = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+            
+            # Broadcast the blocked tailgating/passback attempt to the UI dashboard
+            socket_service.emit_access_denied({
+                "identifier": value,
+                "id_type":    id_type,
+                "reason":     "already_inside",
+                "timestamp":  timestamp_str
+            })
+            
+            return jsonify({
+                "status":     "denied",
+                "identifier": value,
+                "type":       id_type,
+                "direction":  direction,
+                "reason":     "already_inside",
+                "timestamp":  datetime.utcnow().isoformat(),
+                "message":    "Access denied. Vehicle/User is already logged inside the premises."
+            }), 200
 
     # --- Duplicate pending check ---
     if not authorized:
