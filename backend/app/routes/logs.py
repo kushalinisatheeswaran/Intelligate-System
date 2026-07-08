@@ -3,7 +3,7 @@ from flask_jwt_extended import jwt_required
 from app.utils.decorators import guard_or_admin_required
 from app.models.access_log import AccessLog
 from sqlalchemy import func
-from datetime import datetime, date
+from datetime import datetime, date, timezone
 from app.database import db
 from app.models.vehicle import Vehicle
 from app.models.pending import PendingApproval
@@ -29,44 +29,55 @@ def get_logs():
         query = query.filter(AccessLog.identifier.ilike(f"%{search}%"))
     if log_date:
         try:
-            target = datetime.strptime(log_date, "%Y-%m-%d").date()
-            query  = query.filter(func.date(AccessLog.timestamp) == target)
+            parsed_date = datetime.strptime(log_date, "%Y-%m-%d").date()
+            query = query.filter(func.date(AccessLog.timestamp) == parsed_date)
         except ValueError:
-            return jsonify({"error": "Invalid date format. Use YYYY-MM-DD"}), 400
+            pass
 
     total = query.count()
-    logs  = query.limit(limit).all()
+    logs = query.limit(limit).all()
 
-    return jsonify({"total": total, "logs": [l.to_dict() for l in logs]}), 200
-
-
-@logs_bp.route("/stats", methods=["GET"])
-@jwt_required()
-@guard_or_admin_required
-def get_stats():
-    today = date.today()
-
-    total   = AccessLog.query.filter(func.date(AccessLog.timestamp) == today).count()
-    granted = AccessLog.query.filter(
-        func.date(AccessLog.timestamp) == today,
-        AccessLog.status == "granted"
-    ).count()
-    denied = total - granted
-
-    hourly = db_hourly_stats(today)
-
-    plate_count   = AccessLog.query.filter(
-        func.date(AccessLog.timestamp) == today,
-        AccessLog.id_type == "plate"
-    ).count()
-    barcode_count = AccessLog.query.filter(
-        func.date(AccessLog.timestamp) == today,
-        AccessLog.id_type == "barcode"
-    ).count()
+    # Convert logs into clean, readable JSON records
+    serialized = []
+    for l in logs:
+        serialized.append({
+            "id":          l.id,
+            "identifier":  l.identifier,
+            "id_type":     l.id_type,
+            "direction":   l.direction,
+            "status":      l.status,
+            "timestamp":   l.timestamp.strftime("%Y-%m-%d %H:%M:%S")
+        })
 
     return jsonify({
-        "today":   {"total": total, "granted": granted, "denied": denied},
-        "by_hour": hourly,
+        "total_count": total,
+        "logs":        serialized
+    }), 200
+
+
+@logs_bp.route("/logs/stats", methods=["GET"])
+@jwt_required()
+@guard_or_admin_required
+def get_log_stats():
+    # 1. Total entry counts
+    total_entries = AccessLog.query.count()
+
+    # 2. Today's unique statistics
+    today = datetime.now(timezone.utc).date()
+    today_logs = AccessLog.query.filter(func.date(AccessLog.timestamp) == today).all()
+
+    granted_count = sum(1 for l in today_logs if l.status == "granted")
+    denied_count  = sum(1 for l in today_logs if l.status == "denied")
+    plate_count   = sum(1 for l in today_logs if l.id_type == "plate")
+    barcode_count = sum(1 for l in today_logs if l.id_type == "barcode")
+
+    return jsonify({
+        "total_entries": total_entries,
+        "today": {
+            "granted": granted_count,
+            "denied":  denied_count,
+            "total":   len(today_logs)
+        },
         "by_type": {"plate": plate_count, "barcode": barcode_count}
     }), 200
 
@@ -124,7 +135,7 @@ def handle_camera_detection():
         id_type=id_type,
         direction=direction,
         status=status,
-        timestamp=datetime.utcnow()
+        timestamp=datetime.now(timezone.utc)
     )
     db.session.add(new_log)
     db.session.commit()
@@ -140,12 +151,13 @@ def handle_camera_detection():
         }, to="guards")
         socketio.emit("gate_status", {"status": "open", "triggered_by": "system"}, to="guards")
     else:
-        socketio.emit("unknown_vehicle", {
-            "pending_id": pending_entry.id,
-            "identifier": identifier,
-            "id_type": id_type,
-            "timestamp": pending_entry.created_at.strftime("%Y-%m-%d %H:%M:%S")
-        }, to="guards")
+        if pending_entry:
+            socketio.emit("unknown_vehicle", {
+                "pending_id": pending_entry.id,
+                "identifier": identifier,
+                "id_type": id_type,
+                "timestamp": pending_entry.created_at.strftime("%Y-%m-%d %H:%M:%S")
+            }, to="guards")
 
     return jsonify({
         "status": status,

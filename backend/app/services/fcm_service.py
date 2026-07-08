@@ -1,6 +1,6 @@
 import os
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +45,7 @@ def init_firebase():
         logger.error(f"[FCM] Firebase init failed: {e}")
 
 
-def _get_active_tokens(user_ids: list = None) -> list:
+def _get_active_tokens(user_ids: list | None = None) -> list:
     """
     Fetch active FCM tokens from DB.
     If user_ids provided, returns tokens for those users only.
@@ -77,7 +77,7 @@ def _get_active_tokens(user_ids: list = None) -> list:
         return []
 
 
-def _send_fcm_push(tokens: list, title: str, body: str, data: dict = None) -> dict:
+def _send_fcm_push(tokens: list, title: str, body: str, data: dict | None = None) -> dict:
     """
     Core FCM send function.
     Sends to multiple device tokens using MulticastMessage.
@@ -175,7 +175,7 @@ def send_unknown_vehicle_alert(
     id_type: str,
     pending_id: int,
     timestamp: str,
-    image_url: str = None
+    image_url: str | None = None
 ) -> dict:
     """
     Main alert function — called by /api/verify on denied entry.
@@ -232,7 +232,7 @@ def _save_notification(
     title: str,
     body: str,
     status: str,
-    error: str = None
+    error: str | None = None
 ):
     """Saves notification record to PostgreSQL."""
     try:
@@ -246,7 +246,7 @@ def _save_notification(
             message    = f"{title}\n{body}",
             status     = status,
             error      = error,
-            sent_at    = datetime.utcnow()
+            sent_at    = datetime.now(timezone.utc)
         )
         db.session.add(notif)
         db.session.commit()

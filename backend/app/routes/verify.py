@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required
-from datetime import datetime
+from datetime import datetime, timezone
 from app.database import db
 from app.models.vehicle     import Vehicle
 from app.models.student_id import StudentID
@@ -19,24 +19,10 @@ from app.utils.validators import validate_identifier
 verify_bp = Blueprint("verify", __name__)
 
 
-@verify_bp.route("/verify", methods=["POST"])
-def verify():
-    data = request.get_json()
-
-    if not data or "type" not in data or "value" not in data:
-        return jsonify({"error": "Missing required fields: type, value"}), 400
-
-    id_type    = data["type"].strip().lower()
-    value      = data["value"].strip().upper()
-    direction  = data.get("direction", "entry").strip().lower()
-    image_path = data.get("image_path")
-
-    if direction not in ("entry", "exit"):
-        return jsonify({"error": "direction must be 'entry' or 'exit'"}), 400
-
+def process_verify_request(id_type, value, direction, image_path):
     is_valid, error_msg = validate_identifier(id_type, value)
     if not is_valid:
-        return jsonify({"error": error_msg}), 400
+        return {"error": error_msg}, 400
 
     # --- Authorization check ---
     user       = None
@@ -65,7 +51,7 @@ def verify():
                                   .first()
         
         if direction == "entry" and last_log and last_log.direction == "entry":
-            timestamp_str = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+            timestamp_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
             
             # Broadcast the blocked tailgating/passback attempt to the UI dashboard
             socket_service.emit_access_denied({
@@ -75,15 +61,15 @@ def verify():
                 "timestamp":  timestamp_str
             })
             
-            return jsonify({
+            return {
                 "status":     "denied",
                 "identifier": value,
                 "type":       id_type,
                 "direction":  direction,
                 "reason":     "already_inside",
-                "timestamp":  datetime.utcnow().isoformat(),
+                "timestamp":  datetime.now(timezone.utc).isoformat(),
                 "message":    "Access denied. Vehicle/User is already logged inside the premises."
-            }), 200
+            }, 200
 
     # --- Duplicate pending check ---
     if not authorized:
@@ -91,15 +77,15 @@ def verify():
             identifier=value, status="pending"
         ).first()
         if existing_pending:
-            return jsonify({
+            return {
                 "status":     "denied",
                 "identifier": value,
                 "type":       id_type,
                 "reason":     "already_pending",
                 "pending_id": existing_pending.id,
-                "timestamp":  datetime.utcnow().isoformat(),
+                "timestamp":  datetime.now(timezone.utc).isoformat(),
                 "message":    "Already in pending review queue"
-            }), 200
+            }, 200
 
     # --- Write access log ---
     log = AccessLog()
@@ -109,7 +95,7 @@ def verify():
     log.direction  = direction
     log.status     = "granted" if authorized else "denied"
     log.image_path = image_path
-    log.timestamp  = datetime.utcnow()
+    log.timestamp  = datetime.now(timezone.utc)
     db.session.add(log)
     db.session.flush()
 
@@ -158,7 +144,7 @@ def verify():
             image_url  = image_path
         )
 
-        return jsonify({
+        return {
             "status":     "denied",
             "identifier": value,
             "type":       id_type,
@@ -167,7 +153,7 @@ def verify():
             "pending_id": pending.id,
             "timestamp":  log.timestamp.isoformat(),
             "message":    "Access denied. Added to pending review."
-        }), 200
+        }, 200
 
     # --- GRANTED flow ---
     db.session.commit()
@@ -179,29 +165,67 @@ def verify():
         "id_type":    id_type,
         "direction":  direction,
         "status":     "granted",
-        "name":       user.name,
+        "name":       user.name if user else None,
         "timestamp":  timestamp_str
     })
     socket_service.emit_access_granted({
         "identifier": value,
         "id_type":    id_type,
-        "name":       user.name,
+        "name":       user.name if user else None,
         "direction":  direction,
         "timestamp":  timestamp_str
     })
     socket_service.emit_gate_status("open", triggered_by="auto_verify")
 
-    return jsonify({
+    return {
         "status":     "granted",
         "identifier": value,
         "type":       id_type,
         "direction":  direction,
-        "name":       user.name,
-        "user_id":    user.id,
+        "name":       user.name if user else None,
+        "user_id":    user.id if user else None,
         "timestamp":  log.timestamp.isoformat(),
         "gate":       gate_result,
         "message":    "Access granted. Gate opening."
-    }), 200
+    }, 200
+
+
+@verify_bp.route("/verify", methods=["POST"])
+def verify():
+    data = request.get_json()
+
+    if not data or "type" not in data or "value" not in data:
+        return jsonify({"error": "Missing required fields: type, value"}), 400
+
+    id_type    = data["type"].strip().lower()
+    value      = data["value"].strip().upper()
+    direction  = data.get("direction", "entry").strip().lower()
+    image_path = data.get("image_path")
+
+    if direction not in ("entry", "exit"):
+        return jsonify({"error": "direction must be 'entry' or 'exit'"}), 400
+
+    res, status_code = process_verify_request(id_type, value, direction, image_path)
+    return jsonify(res), status_code
+
+
+@verify_bp.route("/scan", methods=["POST"])
+def scan():
+    data = request.get_json()
+
+    if not data or "barcode" not in data:
+        return jsonify({"error": "Missing required fields: barcode"}), 400
+
+    value      = data["barcode"].strip().upper()
+    id_type    = "barcode"
+    direction  = data.get("direction", "entry").strip().lower()
+    image_path = data.get("image_path")
+
+    if direction not in ("entry", "exit"):
+        return jsonify({"error": "direction must be 'entry' or 'exit'"}), 400
+
+    res, status_code = process_verify_request(id_type, value, direction, image_path)
+    return jsonify(res), status_code
 
 
 @verify_bp.route("/verify/status/<string:identifier>", methods=["GET"])

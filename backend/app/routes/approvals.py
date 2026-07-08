@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
-from datetime import datetime
+from datetime import datetime, timezone
 from app.database import db
 from app.models.pending    import PendingApproval
 from app.models.vehicle    import Vehicle
@@ -47,7 +47,7 @@ def approve(approval_id):
 
     approval.status      = "approved"
     approval.reviewed_by = reviewer_id
-    approval.reviewed_at = datetime.utcnow()
+    approval.reviewed_at = datetime.now(timezone.utc)
 
     new_user   = None
     registered = False
@@ -99,7 +99,7 @@ def approve(approval_id):
     log.id_type    = approval.id_type
     log.direction  = "entry"
     log.status     = "granted"
-    log.timestamp  = datetime.utcnow()
+    log.timestamp  = datetime.now(timezone.utc)
     db.session.add(log)
     db.session.commit()
 
@@ -109,7 +109,7 @@ def approve(approval_id):
         "identifier":   approval.identifier,
         "status":       "approved",
         "reviewed_by":  claims.get("name", "Admin"),
-        "timestamp":    datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+        "timestamp":    datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
     })
 
     gate_result = None
@@ -143,7 +143,7 @@ def reject(approval_id):
     approval.status      = "rejected"
     approval.reason      = reason
     approval.reviewed_by = reviewer_id
-    approval.reviewed_at = datetime.utcnow()
+    approval.reviewed_at = datetime.now(timezone.utc)
 
     db.session.commit()
 
@@ -154,7 +154,7 @@ def reject(approval_id):
         "status":      "rejected",
         "reason":      reason,
         "reviewed_by": claims.get("name", "Admin"),
-        "timestamp":   datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+        "timestamp":   datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
     })
 
     return jsonify({

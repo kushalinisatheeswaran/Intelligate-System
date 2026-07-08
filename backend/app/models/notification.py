@@ -2,7 +2,7 @@
 # NOTE: filename is notification.py (no 's') — matches import below
 
 from app.database import db
-from datetime import datetime
+from datetime import datetime, timezone
 
 class Notification(db.Model):
     __tablename__ = "notifications"
@@ -17,7 +17,7 @@ class Notification(db.Model):
     image_path  = db.Column(db.String(255), nullable=True)
     status      = db.Column(db.String(10),  default="sent")  # sent | failed
     error       = db.Column(db.String(255), nullable=True)
-    sent_at     = db.Column(db.DateTime,    default=datetime.utcnow)
+    sent_at     = db.Column(db.DateTime,    default=lambda: datetime.now(timezone.utc))
 
     def to_dict(self):
         return {

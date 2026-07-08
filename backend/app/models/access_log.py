@@ -1,5 +1,5 @@
 from app.database import db
-from datetime import datetime
+from datetime import datetime, timezone
 
 class AccessLog(db.Model):
     __tablename__ = "access_logs"
@@ -14,7 +14,7 @@ class AccessLog(db.Model):
     reason           = db.Column(db.String(255), nullable=True)
     confidence_score = db.Column(db.Float,       nullable=True)
     image_path       = db.Column(db.String(255), nullable=True)
-    timestamp        = db.Column(db.DateTime,    default=datetime.utcnow)
+    timestamp        = db.Column(db.DateTime,    default=lambda: datetime.now(timezone.utc))
 
     def __init__(self, **kwargs):
         super(AccessLog, self).__init__(**kwargs)
