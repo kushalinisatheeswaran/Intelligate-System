@@ -30,6 +30,11 @@ def get_owner_details(plate_number):
 
     # Force clean uppercase layout to match database records
     cleaned_plate = plate_number.strip().upper()
+    import re
+    cleaned_plate = re.sub(r'[^A-Z0-9]', '', cleaned_plate)
+    match = re.match(r'^([A-Z]{2,3})(\d{4})$', cleaned_plate)
+    if match:
+        cleaned_plate = f"{match.group(1)}-{match.group(2)}"
 
     if not HAS_DB:
         logging.warning("⚠️ Database connection module unavailable.")

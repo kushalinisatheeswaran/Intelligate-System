@@ -12,7 +12,7 @@ ESP32_MODE     = os.getenv("ESP32_MODE", "stub")
 ESP32_PORT     = os.getenv("ESP32_PORT", "/dev/ttyUSB0")
 ESP32_BAUD     = int(os.getenv("ESP32_BAUD", 115200))
 ESP32_TIMEOUT  = int(os.getenv("ESP32_TIMEOUT", 3))
-ESP32_HTTP_URL = os.getenv("ESP32_HTTP_URL", "http://192.168.1.100")
+ESP32_HTTP_URL = os.getenv("ESP32_HTTP_URL", "http://10.34.13.95")
 GATE_OPEN_DURATION = int(os.getenv("GATE_OPEN_DURATION", 5))
 
 # Serial connection — singleton, opened once at startup

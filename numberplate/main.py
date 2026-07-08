@@ -13,7 +13,7 @@ import pytesseract
 # CONFIG
 # =========================
 DEVICE_ID = "entry_cam_1"
-SERVER_URL = "http://192.168.1.10:5050"  # CHANGE THIS
+SERVER_URL = "http://10.34.13.95:5050"  # CHANGE THIS
 BACKEND_API_URL = f"{SERVER_URL}/api/verify"
 
 HEADERS = {"Content-Type": "application/json"}
@@ -82,15 +82,18 @@ while True:
     plate = ocr.stabilise(raw) if raw else None
 
     if plate:
+        formatted = ocr.format_plate(plate)
+        final_plate = formatted or plate
         current_time = time.time()
 
-        if plate != last_plate or (current_time - last_time) > COOLDOWN:
-            print("📸 ENTRY Plate:", plate)
+        if final_plate != last_plate or (current_time - last_time) > COOLDOWN:
+            print("📸 ENTRY Plate:", final_plate)
 
             payload = {
-                "device": DEVICE_ID,
-                "plate": plate,
-                "direction": "entry"
+                "type": "plate",
+                "value": final_plate,
+                "direction": "entry",
+                "device_id": DEVICE_ID
             }
 
             try:
@@ -100,7 +103,7 @@ while True:
             except Exception as e:
                 print("Backend error:", e)
 
-            last_plate = plate
+            last_plate = final_plate
             last_time = current_time
 
     cv2.imshow("ENTRY CAMERA", frame)
