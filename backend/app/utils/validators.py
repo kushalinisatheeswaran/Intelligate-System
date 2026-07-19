@@ -1,7 +1,7 @@
 import re
 
 # Plate format: 2-3 letters, dash, 4 digits e.g. ABC-1234
-PLATE_PATTERN   = re.compile(r"^[A-Z]{2,3}-\d{4}$")
+PLATE_PATTERN   = re.compile(r"^[A-Z0-9\s-]{3,15}$")
 
 # Student number format: numeric-only unique ID e.g. 113113
 STUDENT_PATTERN = re.compile(r"^\d+$")

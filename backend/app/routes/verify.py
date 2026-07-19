@@ -72,8 +72,10 @@ def verify():
         if not is_valid:
             is_unknown = True
         else:
-            vehicle = Vehicle.query.filter_by(
-                plate_number=value, is_active=True
+            normalized_value = value.replace("-", "").replace(" ", "")
+            vehicle = Vehicle.query.filter(
+                db.func.replace(db.func.replace(Vehicle.plate_number, '-', ''), ' ', '') == normalized_value,
+                Vehicle.is_active == True
             ).first()
             if vehicle:
                 authorized = True
@@ -238,8 +240,10 @@ def clear_lane():
 def check_status(identifier):
     identifier = identifier.strip().upper()
 
-    vehicle = Vehicle.query.filter_by(
-        plate_number=identifier, is_active=True
+    normalized_id = identifier.replace("-", "").replace(" ", "")
+    vehicle = Vehicle.query.filter(
+        db.func.replace(db.func.replace(Vehicle.plate_number, '-', ''), ' ', '') == normalized_id,
+        Vehicle.is_active == True
     ).first()
     if vehicle:
         return jsonify({

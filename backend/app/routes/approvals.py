@@ -53,8 +53,9 @@ def approve(approval_id):
     registered = False
 
     if approval.id_type == "plate":
-        existing = Vehicle.query.filter_by(
-            plate_number=approval.identifier
+        normalized_id = approval.identifier.replace("-", "").replace(" ", "")
+        existing = Vehicle.query.filter(
+            db.func.replace(db.func.replace(Vehicle.plate_number, '-', ''), ' ', '') == normalized_id
         ).first()
         if not existing:
             new_user = User()
