@@ -60,8 +60,12 @@ export default function GateStatusScreen() {
           onPress : async () => {
             setLoading(true);
             try {
-              await api.post(`/gate/${action}`);
-              // Socket.IO gate_status event updates UI automatically
+              const socket = getSocket();
+              if (socket && socket.connected) {
+                socket.emit("gate_command", { command: action.toUpperCase() });
+              } else {
+                await api.post(`/gate/${action}`);
+              }
             } catch (err) {
               Alert.alert(
                 "Error",

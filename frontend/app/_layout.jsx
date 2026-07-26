@@ -32,6 +32,11 @@ function InitialLayout() {
     );
   }
 
+  const inAuthGroup = segments[0] === "(auth)";
+  if (!user && !inAuthGroup) {
+    return null;
+  }
+
   return <Slot />;
 }
 

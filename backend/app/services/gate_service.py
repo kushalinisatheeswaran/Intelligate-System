@@ -12,7 +12,7 @@ ESP32_MODE     = os.getenv("ESP32_MODE", "stub")
 ESP32_PORT     = os.getenv("ESP32_PORT", "/dev/ttyUSB0")
 ESP32_BAUD     = int(os.getenv("ESP32_BAUD", 115200))
 ESP32_TIMEOUT  = int(os.getenv("ESP32_TIMEOUT", 3))
-ESP32_HTTP_URL = os.getenv("ESP32_HTTP_URL", "http://192.168.1.100")
+ESP32_HTTP_URL = os.getenv("ESP32_HTTP_URL", "http://10.34.13.95")
 GATE_OPEN_DURATION = int(os.getenv("GATE_OPEN_DURATION", 5))
 
 # Serial connection — singleton, opened once at startup
@@ -87,22 +87,43 @@ def open_gate() -> dict:
     Opens the gate and schedules auto-close.
     Called by /api/verify on granted access and /api/gate/open for manual override.
     """
-    logger.info("[GATE] OPEN command triggered")
+    from app.services.state_machine import gate_state_machine
+    current_state = gate_state_machine.get_state()
+    if current_state in ("OPEN", "OPENING"):
+        logger.info(f"[GATE] Ignoring OPEN command. Gate is already {current_state}")
+        return {"status": "ignored", "message": f"Gate is already {current_state}", "gate": current_state.lower()}
 
+    logger.info("[GATE] OPEN command triggered")
+    gate_state_machine.transition_to("OPENING")
+
+    result = {}
     if ESP32_MODE == "serial":
         result = _send_serial_command("OPEN")
     elif ESP32_MODE == "http":
         result = _send_http_command("OPEN")
     else:
         # Stub mode — for development without hardware
-        logger.info("[GATE STUB] OPEN — no hardware connected")
-        result = {"status": "ok", "gate": "open", "mode": "stub"}
+        logger.info("[GATE STUB] OPEN — simulating opening sequence")
+        result = {"status": "ok", "gate": "opening", "mode": "stub"}
+        
+        # Simulate hardware ACK transitions for stub mode
+        def simulate_stub_open():
+            time.sleep(1.5)
+            gate_state_machine.transition_to("OPEN")
+        threading.Thread(target=simulate_stub_open, daemon=True).start()
+
+    # Broadcast execute_gate_action via Socket.IO
+    try:
+        from app.services.socket_service import socketio
+        socketio.emit("execute_gate_action", {"action": "OPEN"})
+    except Exception as e:
+        logger.error(f"[GATE] Failed to emit execute_gate_action OPEN: {e}")
 
     # Schedule auto-close in background thread
     thread = threading.Thread(target=_auto_close_gate, daemon=True)
     thread.start()
 
-    result["gate"]            = "open"
+    result["gate"]            = "opening"
     result["auto_close_in"]   = f"{GATE_OPEN_DURATION}s"
     return result
 
@@ -112,15 +133,36 @@ def close_gate() -> dict:
     Closes the gate.
     Called automatically after open duration or manually via /api/gate/close.
     """
-    logger.info("[GATE] CLOSE command triggered")
+    from app.services.state_machine import gate_state_machine
+    current_state = gate_state_machine.get_state()
+    if current_state in ("CLOSED", "CLOSING"):
+        logger.info(f"[GATE] Ignoring CLOSE command. Gate is already {current_state}")
+        return {"status": "ignored", "message": f"Gate is already {current_state}", "gate": current_state.lower()}
 
+    logger.info("[GATE] CLOSE command triggered")
+    gate_state_machine.transition_to("CLOSING")
+
+    result = {}
     if ESP32_MODE == "serial":
         result = _send_serial_command("CLOSE")
     elif ESP32_MODE == "http":
         result = _send_http_command("CLOSE")
     else:
-        logger.info("[GATE STUB] CLOSE — no hardware connected")
-        result = {"status": "ok", "gate": "closed", "mode": "stub"}
+        logger.info("[GATE STUB] CLOSE — simulating closing sequence")
+        result = {"status": "ok", "gate": "closing", "mode": "stub"}
 
-    result["gate"] = "closed"
+        # Simulate hardware ACK transitions for stub mode
+        def simulate_stub_close():
+            time.sleep(1.5)
+            gate_state_machine.transition_to("CLOSED")
+        threading.Thread(target=simulate_stub_close, daemon=True).start()
+
+    # Broadcast execute_gate_action via Socket.IO
+    try:
+        from app.services.socket_service import socketio
+        socketio.emit("execute_gate_action", {"action": "CLOSE"})
+    except Exception as e:
+        logger.error(f"[GATE] Failed to emit execute_gate_action CLOSE: {e}")
+
+    result["gate"] = "closing"
     return result
