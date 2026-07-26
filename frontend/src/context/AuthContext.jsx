@@ -87,7 +87,11 @@ export function AuthProvider({ children }) {
     } catch {
       // Ignore errors on logout — proceed regardless
     } finally {
-      await SecureStore.deleteItemAsync("jwt_token");
+      try {
+        await SecureStore.deleteItemAsync("jwt_token");
+      } catch {
+        // SecureStore issue
+      }
       setAuthToken(null);
       disconnectSocket();
       setUser(null);

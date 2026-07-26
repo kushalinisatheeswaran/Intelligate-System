@@ -13,7 +13,7 @@ import pytesseract
 # CONFIG
 # =========================
 DEVICE_ID = "entry_cam_1"
-SERVER_URL = "http://10.34.13.95:5050"  # CHANGE THIS
+SERVER_URL = "http://10.34.9.39:5050"  # Target Raspberry Pi 4 backend
 BACKEND_API_URL = f"{SERVER_URL}/api/verify"
 
 HEADERS = {"Content-Type": "application/json"}
@@ -54,6 +54,8 @@ arduino.connect()
 # OCR
 # =========================
 ocr = OCRManager(confirm_threshold=3, history_window=6)
+barcode_detector = cv2.barcode.BarcodeDetector()
+qr_detector = cv2.QRCodeDetector()
 
 cap = cv2.VideoCapture(0)
 
@@ -66,7 +68,50 @@ print("🚀 ENTRY SYSTEM STARTED")
 while True:
     ret, frame = cap.read()
     if not ret:
-        break
+        print("⚠️ Failed to grab frame, retrying...")
+        time.sleep(0.1)
+        continue
+
+    # Try detecting Barcodes or QR codes first
+    scanned_id = None
+    try:
+        retval, points, straight_code = barcode_detector.detectAndDecode(frame)
+        if retval:
+            if isinstance(retval, (list, tuple)):
+                retval = retval[0]
+            val = str(retval).strip()
+            if val and val.isdigit():
+                scanned_id = val
+    except Exception:
+        pass
+
+    if not scanned_id:
+        try:
+            retval, points, straight_code = qr_detector.detectAndDecode(frame)
+            if retval:
+                val = str(retval).strip()
+                if val and val.isdigit():
+                    scanned_id = val
+        except Exception:
+            pass
+
+    if scanned_id:
+        current_time = time.time()
+        if scanned_id != last_plate or (current_time - last_time) > COOLDOWN:
+            print("📸 ENTRY Scanned Student ID / Barcode:", scanned_id)
+            payload = {
+                "type": "barcode",
+                "value": scanned_id,
+                "direction": "entry",
+                "device_id": DEVICE_ID
+            }
+            try:
+                res = requests.post(BACKEND_API_URL, json=payload, timeout=3)
+                print("📡 Response:", res.status_code, res.text)
+            except Exception as e:
+                print("Backend error:", e)
+            last_plate = scanned_id
+            last_time = current_time
 
     roi, _ = get_plate_region(frame)
     if roi is None:

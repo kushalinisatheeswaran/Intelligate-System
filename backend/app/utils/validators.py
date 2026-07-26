@@ -17,9 +17,9 @@ def validate_identifier(id_type: str, value: str) -> tuple[bool, str]:
             return False, f"Invalid plate format: {value}. Expected e.g. ABC-1234"
         return True, ""
 
-    if id_type == "barcode":
+    if id_type in ("barcode", "student_id"):
         if not STUDENT_PATTERN.match(value):
             return False, f"Invalid student ID format: {value}. Expected numeric ID e.g. 113113"
         return True, ""
 
-    return False, f"Unknown type: {id_type}. Use 'plate' or 'barcode'"
+    return False, f"Unknown type: {id_type}. Use 'plate', 'barcode', or 'student_id'"

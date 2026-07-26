@@ -99,6 +99,10 @@ export function setupNotificationListeners(navigationRef) {
 }
 
 export async function unregisterPushNotifications() {
+  if (!Device.isDevice) {
+    console.log("[FCM] Skip unregistering push notifications on simulator");
+    return;
+  }
   try {
     const tokenData = await Notifications.getExpoPushTokenAsync();
     await api.post("/devices/unregister", { fcm_token: tokenData.data });

@@ -13,7 +13,7 @@ from arduino_manager import ArduinoManager
 # =========================
 DEVICE_ID = "exit_cam_1"
 
-BACKEND_URL = "http://10.34.13.95:5050"
+BACKEND_URL = "http://10.34.9.39:5050"
 VERIFY_URL = f"{BACKEND_URL}/api/verify"
 
 HEADERS = {"Content-Type": "application/json"}
@@ -37,9 +37,10 @@ def on_gate_action(data):
 sio.connect(BACKEND_URL)
 
 # =========================
-# OCR
 # =========================
 ocr = OCRManager(confirm_threshold=3, history_window=6)
+barcode_detector = cv2.barcode.BarcodeDetector()
+qr_detector = cv2.QRCodeDetector()
 
 cap = cv2.VideoCapture(0)
 
@@ -52,7 +53,50 @@ print("🚀 EXIT SYSTEM STARTED")
 while True:
     ret, frame = cap.read()
     if not ret:
-        break
+        print("⚠️ Failed to grab frame, retrying...")
+        time.sleep(0.1)
+        continue
+
+    # Try detecting Barcodes or QR codes first
+    scanned_id = None
+    try:
+        retval, points, straight_code = barcode_detector.detectAndDecode(frame)
+        if retval:
+            if isinstance(retval, (list, tuple)):
+                retval = retval[0]
+            val = str(retval).strip()
+            if val and val.isdigit():
+                scanned_id = val
+    except Exception:
+        pass
+
+    if not scanned_id:
+        try:
+            retval, points, straight_code = qr_detector.detectAndDecode(frame)
+            if retval:
+                val = str(retval).strip()
+                if val and val.isdigit():
+                    scanned_id = val
+        except Exception:
+            pass
+
+    if scanned_id:
+        now = time.time()
+        if scanned_id != last_plate or (now - last_time > COOLDOWN):
+            print(f"📸 EXIT scanned Barcode/Student ID: {scanned_id}")
+            payload = {
+                "type": "barcode",
+                "value": scanned_id,
+                "direction": "exit",
+                "device_id": DEVICE_ID
+            }
+            try:
+                res = requests.post(VERIFY_URL, json=payload, headers=HEADERS)
+                print("📡 RESPONSE:", res.status_code, res.text)
+            except Exception as e:
+                print("❌ API error:", e)
+            last_plate = scanned_id
+            last_time = now
 
     roi, _ = get_plate_region(frame)
     if roi is None:

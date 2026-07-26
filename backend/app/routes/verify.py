@@ -82,7 +82,7 @@ def verify():
                 user = vehicle.user
             else:
                 is_unknown = True
-    elif id_type == "barcode":
+    elif id_type in ("barcode", "student_id"):
         if not is_valid:
             return jsonify({"error": error_msg}), 400
         student = StudentID.query.filter_by(
