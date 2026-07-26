@@ -6,6 +6,13 @@ __pycache__/
 numberplate/unknown_plates/
 numberplate/test.jpg
 numberplate/unregistered.jpg
+<<<<<<< HEAD
 backend/test_db_match.py
 firebase_service_account.json
 google-services.json
+=======
+
+firebase_service_account.json
+google-services.json
+backend/test_db_match.py
+>>>>>>> 0551ef4c7722892f8ad331bc58413ef6590d2905
