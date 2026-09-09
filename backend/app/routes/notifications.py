@@ -36,10 +36,17 @@ def get_notifications():
 @admin_required
 def test_notification():
     """
-    Sends a test Telegram message.
-    Admin calls this from dashboard to verify bot is working.
+    Sends a test FCM notification.
+    Admin calls this from dashboard to verify push notifications are working.
     """
-    result = send_test_message()
+    from app.services.fcm_service import send_unknown_vehicle_alert
+    from datetime import datetime, timezone
+    result = send_unknown_vehicle_alert(
+        identifier="TEST-FCM",
+        id_type="plate",
+        pending_id=0,
+        timestamp=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+    )
     return jsonify({
         "message": "Test alert sent" if result.get("sent") else "Test failed",
         "result":  result

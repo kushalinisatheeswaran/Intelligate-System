@@ -57,6 +57,7 @@ def process_verify_request(id_type, value, direction, image_path):
             socket_service.emit_access_denied({
                 "identifier": value,
                 "id_type":    id_type,
+                "direction":  direction,
                 "reason":     "already_inside",
                 "timestamp":  timestamp_str
             })
@@ -69,6 +70,28 @@ def process_verify_request(id_type, value, direction, image_path):
                 "reason":     "already_inside",
                 "timestamp":  datetime.now(timezone.utc).isoformat(),
                 "message":    "Access denied. Vehicle/User is already logged inside the premises."
+            }, 200
+
+        elif direction == "exit" and (not last_log or last_log.direction == "exit"):
+            timestamp_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+            
+            # Broadcast the blocked passback attempt to the UI dashboard
+            socket_service.emit_access_denied({
+                "identifier": value,
+                "id_type":    id_type,
+                "direction":  direction,
+                "reason":     "already_outside",
+                "timestamp":  timestamp_str
+            })
+            
+            return {
+                "status":     "denied",
+                "identifier": value,
+                "type":       id_type,
+                "direction":  direction,
+                "reason":     "already_outside",
+                "timestamp":  datetime.now(timezone.utc).isoformat(),
+                "message":    "Access denied. Vehicle/User is already logged outside the premises."
             }, 200
 
     # --- Duplicate pending check ---

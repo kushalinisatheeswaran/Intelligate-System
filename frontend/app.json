@@ -22,7 +22,7 @@
         "backgroundColor": "#1D4ED8"
       },
       "package": "com.intelligate.mobile",
-      "googleServicesFile": "./google-services.json"
+      "googleServicesFile": "./android/app/google-services.json"
     },
     "plugins": [
       "expo-router",

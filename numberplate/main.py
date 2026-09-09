@@ -10,6 +10,7 @@ from ocr import extract_plate_text
 # CONFIG
 # =========================
 BACKEND_API_URL = "http://127.0.0.1:5050/api/verify"
+CAMERA_DIRECTION = os.getenv("CAMERA_DIRECTION", "entry").strip().lower()
 
 HEADERS = {
     "Content-Type": "application/json"
@@ -53,9 +54,10 @@ except Exception as e:
 # =========================
 # CAMERA INIT
 # =========================
-cap = cv2.VideoCapture(0)
+CAMERA_INDEX = int(os.getenv("CAMERA_INDEX", "0"))
+cap = cv2.VideoCapture(CAMERA_INDEX)
 
-print("🚀 ANPR System Started. Press 'q' to quit.")
+print(f"🚀 ANPR System Started (Camera {CAMERA_INDEX}, Direction: {CAMERA_DIRECTION}). Press 'q' to quit.")
 
 # =========================
 # STATE CONTROL
@@ -107,7 +109,7 @@ while True:
             payload = {
                 "type": "plate",
                 "value": plate,
-                "direction": "entry",
+                "direction": CAMERA_DIRECTION,
                 "image_path": image_path
             }
 

@@ -44,8 +44,8 @@ export async function registerForPushNotifications() {
     });
   }
 
-  // Get Expo push token (works with FCM on Android)
-  const tokenData = await Notifications.getExpoPushTokenAsync();
+  // Get native FCM device token for direct Firebase Admin SDK multicast
+  const tokenData = await Notifications.getDevicePushTokenAsync();
   const fcmToken  = tokenData.data;
   console.log("[FCM] Token obtained:", fcmToken.substring(0, 30) + "...");
 
@@ -100,7 +100,7 @@ export function setupNotificationListeners(navigationRef) {
 
 export async function unregisterPushNotifications() {
   try {
-    const tokenData = await Notifications.getExpoPushTokenAsync();
+    const tokenData = await Notifications.getDevicePushTokenAsync();
     await api.post("/devices/unregister", { fcm_token: tokenData.data });
     console.log("[FCM] Token unregistered from backend");
   } catch (err) {

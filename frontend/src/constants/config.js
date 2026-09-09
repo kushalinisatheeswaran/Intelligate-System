@@ -2,7 +2,7 @@
 // Find it with: ipconfig (Windows) or ifconfig (Mac/Linux)
 // Your phone and laptop must be on the same WiFi network
 
-export const FLASK_HOST = "10.34.15.173";      // ← change this
+export const FLASK_HOST = "192.168.8.131";      // ← current LAN IP
 export const FLASK_PORT = "5050";
 export const API_BASE_URL = `http://${FLASK_HOST}:${FLASK_PORT}/api`;
 export const SOCKET_URL = `http://${FLASK_HOST}:${FLASK_PORT}`;

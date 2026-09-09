@@ -9,16 +9,20 @@ except ImportError:
     print("\n[ERROR] zxing-cpp is missing.")
     sys.exit(1)
 
+import os
+
 # Configuration: Replace with your actual backend API URL
 BACKEND_URL = "http://127.0.0.1:5050/api/scan"  # Adjust port/path to match your backend route
+SCANNER_DIRECTION = os.getenv("SCANNER_DIRECTION", "entry").strip().lower()
 
 # Debounce settings to prevent spamming duplicate requests
 last_scanned_data = None
 last_scanned_time = 0
 COOLDOWN_SECONDS = 3  # Wait 3 seconds before allowing the same ID to scan again
 
-cap = cv2.VideoCapture(0)
-print("Barcode scanner active and linked to API backend. Scan an ID...")
+SCANNER_INDEX = int(os.getenv("SCANNER_INDEX", "0"))
+cap = cv2.VideoCapture(SCANNER_INDEX)
+print(f"Barcode scanner active (Index: {SCANNER_INDEX}, Direction: {SCANNER_DIRECTION}) and linked to API backend. Scan an ID...")
 
 while True:
     ret, frame = cap.read()
@@ -41,7 +45,7 @@ while True:
             
             # Send data directly to your backend service
             try:
-                payload = {"barcode": barcode_data, "type": barcode_format}
+                payload = {"barcode": barcode_data, "type": barcode_format, "direction": SCANNER_DIRECTION}
                 response = requests.post(BACKEND_URL, json=payload, timeout=5)
                 print(f"Backend response status: {response.status_code}")
             except requests.exceptions.RequestException as e:
