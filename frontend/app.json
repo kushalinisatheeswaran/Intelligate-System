@@ -7,11 +7,6 @@
     "icon": "./assets/images/icon.png",
     "scheme": "intelligate",
     "userInterfaceStyle": "light",
-    "splash": {
-      "image": "./assets/images/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#1D4ED8"
-    },
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.intelligate.mobile"
@@ -34,7 +29,18 @@
           "androidMode": "default",
           "androidCollapsedTitle": "IntelliGate Alert"
         }
-      ]
+      ],
+      "expo-image",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash-icon.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#1D4ED8",
+          "imageWidth": 200
+        }
+      ],
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true

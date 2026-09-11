@@ -13,10 +13,11 @@ Notifications.setNotificationHandler({
 });
 
 export async function registerForPushNotifications() {
-  if (!Device.isDevice) {
-    console.log("[FCM] Push notifications require a physical device");
+  if (!Device.isDevice && Platform.OS !== "android") {
+    console.log("[FCM] Push notifications require a physical device or Android emulator");
     return null;
   }
+
 
   // Request permission
   const { status: existingStatus } =
@@ -40,8 +41,8 @@ export async function registerForPushNotifications() {
       importance       : Notifications.AndroidImportance.MAX,
       vibrationPattern : [0, 250, 250, 250],
       lightColor       : "#FF0000",
-      sound            : "default",
     });
+
   }
 
   // Get native FCM device token for direct Firebase Admin SDK multicast

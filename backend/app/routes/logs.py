@@ -82,6 +82,56 @@ def get_log_stats():
     }), 200
 
 
+@logs_bp.route("/occupancy", methods=["GET"])
+@jwt_required()
+@guard_or_admin_required
+def get_occupancy():
+    row_num = func.row_number().over(
+        partition_by=AccessLog.identifier,
+        order_by=[AccessLog.timestamp.desc(), AccessLog.id.desc()]
+    ).label("rn")
+
+    subq = db.session.query(
+        AccessLog.id.label("log_id"),
+        row_num
+    ).filter(
+        AccessLog.status == "granted",
+        AccessLog.identifier.isnot(None)
+    ).subquery()
+
+    inside_logs = db.session.query(AccessLog).join(
+        subq, AccessLog.id == subq.c.log_id
+    ).filter(
+        subq.c.rn == 1,
+        AccessLog.direction == "entry"
+    ).all()
+
+    vehicles = []
+    students = []
+
+    for l in inside_logs:
+        timestamp_str = l.timestamp.strftime("%Y-%m-%d %H:%M:%S") if l.timestamp else None
+        item = {
+            "identifier": l.identifier,
+            "name": l.user.name if l.user else None,
+            "entry_time": timestamp_str,
+            "user_id": l.user_id,
+            "status": "inside"
+        }
+        if l.id_type == "plate":
+            vehicles.append(item)
+        elif l.id_type == "barcode":
+            students.append(item)
+
+    return jsonify({
+        "vehicles_inside": len(vehicles),
+        "students_inside": len(students),
+        "total_inside": len(vehicles) + len(students),
+        "vehicles": vehicles,
+        "students": students
+    }), 200
+
+
 def db_hourly_stats(target_date):
     results = db.session.query(
         func.extract("hour", AccessLog.timestamp).label("hour"),
