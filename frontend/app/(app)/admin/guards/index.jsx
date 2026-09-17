@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   View,
   Text,
@@ -36,10 +36,10 @@ export default function GuardListScreen() {
   // Snackbar State
   const [snackbarMessage, setSnackbarMessage] = useState("");
   const [snackbarType, setSnackbarType] = useState("success"); // success | error
-  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const fadeAnim = useMemo(() => new Animated.Value(0), []);
 
   // Skeleton Animation
-  const skeletonAlpha = useRef(new Animated.Value(0.3)).current;
+  const skeletonAlpha = useMemo(() => new Animated.Value(0.3), []);
 
   const showSnackbar = (message, type = "success") => {
     setSnackbarMessage(message);
@@ -103,6 +103,11 @@ export default function GuardListScreen() {
     fetchGuards();
   }, [fetchGuards]);
 
+  const setFilteredGuardsList = (result) => {
+    setFilteredGuards(result);
+    setCurrentPage(1);
+  };
+
   // Search filtering
   useEffect(() => {
     let result = [...guards];
@@ -117,11 +122,6 @@ export default function GuardListScreen() {
 
     setFilteredGuardsList(result);
   }, [searchQuery, guards]);
-
-  const setFilteredGuardsList = (result) => {
-    setFilteredGuards(result);
-    setCurrentPage(1);
-  };
 
   // Pagination
   useEffect(() => {

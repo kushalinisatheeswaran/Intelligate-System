@@ -34,6 +34,9 @@ with app.app_context():
         User(name="Dr. Fernando",  email="fernando@uni.edu",   role="staff"),
         User(name="Admin User",    email="admin@intelligate.com", role="admin"),
         User(name="Guard Rajan",   email="guard@intelligate.com", role="staff"),
+        User(name="A. Ramanan",    email="ramanan@uni.edu",    role="student"),
+        User(name="K. Tharini",    email="tharini@uni.edu",    role="student"),
+        User(name="Prof. S. Jeyakumar", email="jeyakumar@uni.edu", role="staff"),
     ]
     for u in users:
         db.session.add(u)
@@ -44,15 +47,18 @@ with app.app_context():
         Vehicle(user_id=users[0].id, plate_number="ABC-1234", vehicle_type="car"),
         Vehicle(user_id=users[1].id, plate_number="XYZ-5678", vehicle_type="car"),
         Vehicle(user_id=users[3].id, plate_number="CBGG-558", vehicle_type="car"),
+        Vehicle(user_id=users[6].id, plate_number="CBR-6797", vehicle_type="car"),
+        Vehicle(user_id=users[7].id, plate_number="CBN-4088", vehicle_type="car"),
+        Vehicle(user_id=users[8].id, plate_number="BJA-6202", vehicle_type="car"),
     ]
     for v in vehicles:
         db.session.add(v)
 
     print("Creating student IDs...")
     student_ids = [
-        StudentID(user_id=users[0].id, student_number="113113", faculty="Engineering"),
-        StudentID(user_id=users[1].id, student_number="113114", faculty="Engineering"),
-        StudentID(user_id=users[2].id, student_number="113115", faculty="Engineering"),
+        StudentID(user_id=users[0].id, student_number="113688", faculty="Engineering"),
+        StudentID(user_id=users[1].id, student_number="113658", faculty="Engineering"),
+        StudentID(user_id=users[2].id, student_number="113643", faculty="Engineering"),
     ]
     for s in student_ids:
         db.session.add(s)
@@ -69,8 +75,8 @@ with app.app_context():
     identifiers = [
         ("ABC-1234", "plate",   "granted", users[0].id),
         ("XYZ-5678", "plate",   "granted", users[1].id),
-        ("113113",   "barcode", "granted", users[0].id),
-        ("113114",   "barcode", "granted", users[1].id),
+        ("113688",   "barcode", "granted", users[0].id),
+        ("113658",   "barcode", "granted", users[1].id),
         ("UNKNOWN-1", "plate",  "denied",  None),
         ("UNKNOWN-2", "plate",  "denied",  None),
     ]

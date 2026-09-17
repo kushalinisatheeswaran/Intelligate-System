@@ -37,3 +37,35 @@ def register_socket_events(socketio):
         React Native app pings to check if gate system is online.
         """
         emit("pong_gate", {"status": "online", "system": "IntelliGate"})
+
+    @socketio.on("gate_command")
+    def on_gate_command(data):
+        """
+        Manually trigger gate open or close from the frontend.
+        """
+        command = data.get("command", "").upper()
+        logger.info(f"[SOCKET] Received gate_command: {command}")
+
+        from app.services.gate_service import open_gate, close_gate
+        from app.services.socket_service import emit_gate_status
+
+        if command == "OPEN":
+            open_gate()
+            emit_gate_status("open", triggered_by="Admin Manual Control")
+        elif command == "CLOSE":
+            close_gate()
+            emit_gate_status("closed", triggered_by="Admin Manual Control")
+        else:
+            logger.warning(f"[SOCKET] Invalid gate_command received: {command}")
+
+    @socketio.on("arduino_ack")
+    def on_arduino_ack(data):
+        """
+        Feedback from the Arduino hardware controller (via ANPR client).
+        """
+        state = data.get("state", "").upper()
+        logger.info(f"[SOCKET] Received Arduino ACK: {state}")
+        from app.services.state_machine import gate_state_machine
+        if state == "OPENED":
+            state = "OPEN"
+        gate_state_machine.transition_to(state)

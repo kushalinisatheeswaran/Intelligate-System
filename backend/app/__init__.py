@@ -23,8 +23,7 @@ def create_app():
     # ✅ SocketIO init (FIXED)
     socketio.init_app(
         app,
-        cors_allowed_origins=app.config["SOCKETIO_CORS_ORIGINS"],
-        async_mode="eventlet"   # OR remove this line completely (recommended)
+        cors_allowed_origins=app.config["SOCKETIO_CORS_ORIGINS"]
     )
 
     jwt = JWTManager(app)

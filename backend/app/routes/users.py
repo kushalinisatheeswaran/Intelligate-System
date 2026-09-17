@@ -48,7 +48,10 @@ def register_user():
 
     # Check for duplicate
     if id_type == "plate":
-        if Vehicle.query.filter_by(plate_number=identifier).first():
+        normalized_id = identifier.replace("-", "").replace(" ", "")
+        if Vehicle.query.filter(
+            db.func.replace(db.func.replace(Vehicle.plate_number, '-', ''), ' ', '') == normalized_id
+        ).first():
             return jsonify({"error": f"Plate {identifier} already registered"}), 409
     elif id_type == "barcode":
         if StudentID.query.filter_by(student_number=identifier).first():
@@ -240,7 +243,10 @@ def add_user_vehicle(user_id):
     if not is_valid:
         return jsonify({"error": error}), 400
 
-    existing = Vehicle.query.filter_by(plate_number=plate_number).first()
+    normalized_id = plate_number.replace("-", "").replace(" ", "")
+    existing = Vehicle.query.filter(
+        db.func.replace(db.func.replace(Vehicle.plate_number, '-', ''), ' ', '') == normalized_id
+    ).first()
     if existing:
         return jsonify({"error": f"Plate {plate_number} already registered"}), 409
 
@@ -284,7 +290,11 @@ def update_vehicle(vehicle_id):
         if not is_valid:
             return jsonify({"error": error}), 400
 
-        existing = Vehicle.query.filter(Vehicle.plate_number == plate_number, Vehicle.id != vehicle_id).first()
+        normalized_id = plate_number.replace("-", "").replace(" ", "")
+        existing = Vehicle.query.filter(
+            db.func.replace(db.func.replace(Vehicle.plate_number, '-', ''), ' ', '') == normalized_id,
+            Vehicle.id != vehicle_id
+        ).first()
         if existing:
             return jsonify({"error": f"Plate {plate_number} already registered"}), 409
         vehicle.plate_number = plate_number

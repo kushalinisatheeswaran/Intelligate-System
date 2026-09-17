@@ -19,24 +19,72 @@ from app.utils.validators import validate_identifier
 verify_bp = Blueprint("verify", __name__)
 
 
-def process_verify_request(id_type, value, direction, image_path):
+@verify_bp.route("/verify", methods=["POST"])
+def verify():
+    data = request.get_json()
+
+    if not data or "type" not in data or "value" not in data:
+        return jsonify({"error": "Missing required fields: type, value"}), 400
+
+    id_type    = data["type"].strip().lower()
+    value      = data["value"].strip().upper()
+    direction  = data.get("direction", "entry").strip().lower()
+    image_path = data.get("image_path")
+
+    if direction not in ("entry", "exit"):
+        return jsonify({"error": "direction must be 'entry' or 'exit'"}), 400
+
+    # 1. Database duplicate protection window (5 seconds sliding window)
+    from datetime import timedelta
+    five_seconds_ago = datetime.utcnow() - timedelta(seconds=5)
+    recent_log = AccessLog.query.filter(
+        AccessLog.identifier == value,
+        AccessLog.direction == direction,
+        AccessLog.timestamp >= five_seconds_ago
+    ).first()
+    
+    if recent_log:
+        return jsonify({
+            "status": "ignored",
+            "identifier": value,
+            "message": "Duplicate verification request ignored (sliding window)"
+        }), 200
+
+    # 2. State Machine / Session Check for plates
+    if id_type == "plate":
+        from app.services.session_service import session_manager
+        if not session_manager.can_process_plate(value):
+            return jsonify({
+                "status": "ignored",
+                "identifier": value,
+                "type": id_type,
+                "message": "Duplicate detection ignored. Session active."
+            }), 200
+
     is_valid, error_msg = validate_identifier(id_type, value)
-    if not is_valid:
-        return {"error": error_msg}, 400
 
     # --- Authorization check ---
     user       = None
     authorized = False
+    is_unknown = False
 
     if id_type == "plate":
-        vehicle = Vehicle.query.filter_by(
-            plate_number=value, is_active=True
-        ).first()
-        if vehicle:
-            authorized = True
-            user = vehicle.user
-
-    elif id_type == "barcode":
+        if not is_valid:
+            is_unknown = True
+        else:
+            normalized_value = value.replace("-", "").replace(" ", "")
+            vehicle = Vehicle.query.filter(
+                db.func.replace(db.func.replace(Vehicle.plate_number, '-', ''), ' ', '') == normalized_value,
+                Vehicle.is_active == True
+            ).first()
+            if vehicle:
+                authorized = True
+                user = vehicle.user
+            else:
+                is_unknown = True
+    elif id_type in ("barcode", "student_id"):
+        if not is_valid:
+            return jsonify({"error": error_msg}), 400
         student = StudentID.query.filter_by(
             student_number=value, is_active=True
         ).first()
@@ -124,8 +172,12 @@ def process_verify_request(id_type, value, direction, image_path):
 
     timestamp_str = log.timestamp.strftime("%Y-%m-%d %H:%M:%S")
 
-    # --- DENIED flow ---
+    # --- DENIED / UNKNOWN flow ---
     if not authorized:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning(f"[ANPR ALERT] Unknown/Unauthorized vehicle detected: {value}")
+
         pending = PendingApproval()
         pending.log_id     = log.id
         pending.identifier = value
@@ -135,7 +187,7 @@ def process_verify_request(id_type, value, direction, image_path):
         db.session.add(pending)
         db.session.commit()
 
-        # 1. Socket.IO — Using prefixed object routes now
+        # 1. Socket.IO — Emit alerts and events
         socket_service.emit_vehicle_detected({
             "identifier": value,
             "id_type":    id_type,
@@ -144,6 +196,10 @@ def process_verify_request(id_type, value, direction, image_path):
             "name":       None,
             "timestamp":  timestamp_str
         })
+        
+        # Trigger specified standard alert event format
+        socket_service.emit_alert_event(value)
+
         socket_service.emit_unknown_vehicle({
             "identifier": value,
             "id_type":    id_type,
@@ -251,13 +307,31 @@ def scan():
     return jsonify(res), status_code
 
 
+@verify_bp.route("/lane/clear", methods=["POST"])
+def clear_lane():
+    """
+    Clears the active tracking session for a plate.
+    Called when the vehicle clears the lane.
+    """
+    data = request.get_json() or {}
+    plate = data.get("plate")
+    if not plate:
+        return jsonify({"error": "Missing plate"}), 400
+
+    from app.services.session_service import session_manager
+    session_manager.clear_session(plate)
+    return jsonify({"status": "ok", "message": f"Session cleared for plate {plate}"}), 200
+
+
 @verify_bp.route("/verify/status/<string:identifier>", methods=["GET"])
 @jwt_required()
 def check_status(identifier):
     identifier = identifier.strip().upper()
 
-    vehicle = Vehicle.query.filter_by(
-        plate_number=identifier, is_active=True
+    normalized_id = identifier.replace("-", "").replace(" ", "")
+    vehicle = Vehicle.query.filter(
+        db.func.replace(db.func.replace(Vehicle.plate_number, '-', ''), ' ', '') == normalized_id,
+        Vehicle.is_active == True
     ).first()
     if vehicle:
         return jsonify({

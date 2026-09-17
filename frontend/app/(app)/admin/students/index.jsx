@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   View,
   Text,
@@ -35,10 +35,10 @@ export default function StudentListScreen() {
   // Snackbar State
   const [snackbarMessage, setSnackbarMessage] = useState("");
   const [snackbarType, setSnackbarType] = useState("success"); // success | error
-  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const fadeAnim = useMemo(() => new Animated.Value(0), []);
 
   // Skeleton Loader Animation
-  const skeletonAlpha = useRef(new Animated.Value(0.3)).current;
+  const skeletonAlpha = useMemo(() => new Animated.Value(0.3), []);
 
   const showSnackbar = (message, type = "success") => {
     setSnackbarMessage(message);
@@ -103,6 +103,11 @@ export default function StudentListScreen() {
     fetchStudents();
   }, [fetchStudents]);
 
+  const setFilteredUsers = (result) => {
+    setFilteredStudents(result);
+    setCurrentPage(1);
+  };
+
   // Handle Search, Filtering, and resetting page
   useEffect(() => {
     let result = [...students];
@@ -126,11 +131,6 @@ export default function StudentListScreen() {
 
     setFilteredUsers(result);
   }, [searchQuery, statusFilter, students]);
-
-  const setFilteredUsers = (result) => {
-    setFilteredStudents(result);
-    setCurrentPage(1);
-  };
 
   // Handle Pagination
   useEffect(() => {

@@ -120,8 +120,18 @@ def emit_access_denied(data: dict):
 
 def emit_gate_status(status: str, triggered_by: str = "system"):
     data = {"status": status, "triggered_by": triggered_by}
-    logger.info(f"[SOCKET] gate_status -> {status}")
-    socketio.emit("gate_status", data)
+    logger.info(f"[SOCKET] gate_status_update -> {status}")
+    socketio.emit("gate_status_update", data)
+
+def emit_alert_event(plate: str = "UNKNOWN"):
+    data = {
+        "status": "ALERT",
+        "type": "UNKNOWN_VEHICLE",
+        "plate": plate,
+        "action": "NOTIFY_ADMIN"
+    }
+    logger.info(f"[SOCKET] alert_event -> {data}")
+    socketio.emit("alert_event", data)
 
 def emit_approval_update(data: dict):
     logger.info(f"[SOCKET] approval_update -> pending#{data.get('pending_id')} {data.get('status')}")
