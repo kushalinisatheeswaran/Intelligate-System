@@ -1,5 +1,5 @@
 from app.database import db
-from datetime import datetime
+from datetime import datetime, timezone
 
 class Vehicle(db.Model):
     __tablename__ = "vehicles"
@@ -10,7 +10,7 @@ class Vehicle(db.Model):
     vehicle_type = db.Column(db.String(30), default="car")  # car | bike | van
     color        = db.Column(db.String(30), nullable=True)
     is_active    = db.Column(db.Boolean,    default=True)
-    created_at   = db.Column(db.DateTime,   default=datetime.utcnow)
+    created_at   = db.Column(db.DateTime,   default=lambda: datetime.now(timezone.utc))
 
     def __init__(self, **kwargs):
         super(Vehicle, self).__init__(**kwargs)

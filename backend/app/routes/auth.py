@@ -5,7 +5,7 @@ from flask_jwt_extended import (
     get_jwt_identity,
     get_jwt
 )
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.database import db
 from app.models.administrator import Administrator
@@ -59,7 +59,7 @@ def login():
         print("=" * 60)
         return jsonify({"error": "Account is deactivated"}), 403
 
-    admin.last_login = datetime.utcnow()
+    admin.last_login = datetime.now(timezone.utc)
     db.session.commit()
 
     access_token = create_access_token(

@@ -61,6 +61,14 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="occupancy"
+        options={{
+          title       : "Inside",
+          headerTitle : "Currently Inside",
+          tabBarIcon  : () => <TabIcon icon="🏛️" />,
+        }}
+      />
+      <Tabs.Screen
         name="notifications"
         options={{
           title       : "Alerts",
@@ -69,5 +77,6 @@ export default function TabsLayout() {
         }}
       />
     </Tabs>
+
   );
 }

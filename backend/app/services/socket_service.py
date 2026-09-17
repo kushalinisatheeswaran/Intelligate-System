@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from flask_socketio import SocketIO
 
 logger = logging.getLogger(__name__)
@@ -21,7 +21,7 @@ def handle_incoming_plate(data):
         return
 
     logger.info(f"[ANPR INBOUND] Processing lookup for clean string: {raw_plate}")
-    timestamp_dt = datetime.utcnow()
+    timestamp_dt = datetime.now(timezone.utc)
     timestamp_iso = timestamp_dt.isoformat()
 
     try:

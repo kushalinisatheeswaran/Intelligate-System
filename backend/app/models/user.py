@@ -1,5 +1,5 @@
 from app.database import db
-from datetime import datetime
+from datetime import datetime, timezone
 
 class User(db.Model):
     __tablename__ = "users"
@@ -9,7 +9,7 @@ class User(db.Model):
     email      = db.Column(db.String(120), unique=True, nullable=True)
     role       = db.Column(db.String(20),  default="student")  # student | staff
     is_active  = db.Column(db.Boolean,     default=True)
-    created_at = db.Column(db.DateTime,    default=datetime.utcnow)
+    created_at = db.Column(db.DateTime,    default=lambda: datetime.now(timezone.utc))
 
     # Relationships
     vehicles    = db.relationship("Vehicle",   backref="user", lazy=True)

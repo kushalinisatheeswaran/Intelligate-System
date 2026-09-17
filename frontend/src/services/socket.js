@@ -5,7 +5,8 @@ export const connectSocket = () => {
   if (global.socketInstance) return global.socketInstance;
 
   global.socketInstance = io(SOCKET_URL, {
-    transports           : ["websocket"],
+    transports           : ["polling", "websocket"],
+
     reconnection         : true,
     reconnectionDelay    : 2000,
     reconnectionAttempts : 10,

@@ -35,7 +35,7 @@ async def anpr_events_endpoint(websocket: WebSocket):
     try:
         while True:
             # Keep connection open, wait for client messages if any
-            data = await websocket.receive_text()
+            _ = await websocket.receive_text()
     except WebSocketDisconnect:
         manager.disconnect(websocket)
 

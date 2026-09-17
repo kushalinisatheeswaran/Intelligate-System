@@ -1,5 +1,5 @@
 from app.database import db
-from datetime import datetime
+from datetime import datetime, timezone
 
 class DeviceToken(db.Model):
     __tablename__ = "device_tokens"
@@ -9,7 +9,7 @@ class DeviceToken(db.Model):
     fcm_token     = db.Column(db.Text,        nullable=False, unique=True)
     device_type   = db.Column(db.String(10),  default="android") # android | ios
     is_active     = db.Column(db.Boolean,     default=True)
-    registered_at = db.Column(db.DateTime,    default=datetime.utcnow)
+    registered_at = db.Column(db.DateTime,    default=lambda: datetime.now(timezone.utc))
 
     user = db.relationship("User", backref="device_tokens", lazy=True)
 

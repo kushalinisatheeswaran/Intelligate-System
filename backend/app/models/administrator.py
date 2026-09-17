@@ -1,5 +1,5 @@
 from app.database import db
-from datetime import datetime
+from datetime import datetime, timezone
 from werkzeug.security import generate_password_hash, check_password_hash
 
 class Administrator(db.Model):
@@ -10,7 +10,7 @@ class Administrator(db.Model):
     password_hash = db.Column(db.String(255),nullable=False)
     role          = db.Column(db.String(20), default="guard")  # admin | guard
     last_login    = db.Column(db.DateTime,   nullable=True)
-    created_at    = db.Column(db.DateTime,   default=datetime.utcnow)
+    created_at    = db.Column(db.DateTime,   default=lambda: datetime.now(timezone.utc))
 
     user = db.relationship("User", backref="admin_profile", lazy=True)
 

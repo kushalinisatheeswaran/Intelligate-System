@@ -13,10 +13,11 @@ Notifications.setNotificationHandler({
 });
 
 export async function registerForPushNotifications() {
-  if (!Device.isDevice) {
-    console.log("[FCM] Push notifications require a physical device");
+  if (!Device.isDevice && Platform.OS !== "android") {
+    console.log("[FCM] Push notifications require a physical device or Android emulator");
     return null;
   }
+
 
   // Request permission
   const { status: existingStatus } =
@@ -40,12 +41,12 @@ export async function registerForPushNotifications() {
       importance       : Notifications.AndroidImportance.MAX,
       vibrationPattern : [0, 250, 250, 250],
       lightColor       : "#FF0000",
-      sound            : "default",
     });
+
   }
 
-  // Get Expo push token (works with FCM on Android)
-  const tokenData = await Notifications.getExpoPushTokenAsync();
+  // Get native FCM device token for direct Firebase Admin SDK multicast
+  const tokenData = await Notifications.getDevicePushTokenAsync();
   const fcmToken  = tokenData.data;
   console.log("[FCM] Token obtained:", fcmToken.substring(0, 30) + "...");
 
@@ -104,7 +105,7 @@ export async function unregisterPushNotifications() {
     return;
   }
   try {
-    const tokenData = await Notifications.getExpoPushTokenAsync();
+    const tokenData = await Notifications.getDevicePushTokenAsync();
     await api.post("/devices/unregister", { fcm_token: tokenData.data });
     console.log("[FCM] Token unregistered from backend");
   } catch (err) {
